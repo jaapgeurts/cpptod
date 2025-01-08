@@ -1,0 +1,15 @@
+name "cpptod"
+description "C++ to D transpiler. Based on DParserGen."
+authors "Tim Schendekehl" "Jaap Geurts"
+license "BSL-1.0"
+dependency "dparsergen:core" version="~>0.1.2"
+dependency "dparsergen:generator" version="~>0.1.2"
+dependency "libdparse" version="~>0.24.0"
+targetType "executable"
+sourceFiles "cpptod.d" "convert.d" "dsourceprinter.d" "formatwriter.d" "grammarcpreproc.d" "grammarcpreproc_lexer.d" "grammarcpp.d" "grammarcpp_lexer.d"
+preBuildCommands "\"$DUB\" run dparsergen:generator -- grammarcpreproc.ebnf -o grammarcpreproc.d --lexer grammarcpreproc_lexer.d"
+preBuildCommands "\"$DUB\" run dparsergen:generator -- grammarcpp.ebnf --glr --mergesimilarstates --optempty -o grammarcpp.d --lexer grammarcpp_lexer.d"
+buildRequirements "allowWarnings"
+buildType "debug" {
+    buildOptions "debugMode" "debugInfo"
+}
