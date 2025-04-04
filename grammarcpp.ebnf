@@ -1,10 +1,10 @@
 import "grammarcppcommon.ebnf";
+// import "grammarcpreprocdirect.ebnf";
 
 option startTokenID = 1000;
 option startNonterminalID = 2000;
 option startProductionID = 3000;
 
-// Section basic.link
 TranslationUnit @noOptEmpty
     = DeclarationSeq
     ;
@@ -392,6 +392,7 @@ CompoundStatement
 StatementSeq @array
     = @empty
     | StatementSeq Statement
+    | StatementSeq Comment
     ;
 
 // Section stmt.select
@@ -453,7 +454,55 @@ DeclarationSeq @array @noOptEmpty
     = @empty
     | DeclarationSeq Declaration
     | DeclarationSeq LinkageSpecification
+    | DeclarationSeq Directive
+    | DeclarationSeq LineComment
     ;
+
+Directive
+    = Include
+    | Define
+    | UnDefine
+    | IfDef
+    | IfNotDef
+    | EndIf
+    | ElIf
+    | PPElse
+    ;
+
+Include = "#" "include" HeaderName;
+Define = "#" "define" DefineName DefineValue;
+UnDefine = "#" "undef" Identifier;
+IfDef = "#" "ifdef" Identifier;
+IfNotDef = "#" "ifndef" Identifier;
+EndIf = "#" "endif" Identifier;
+ElIf = "#" "elif" Identifier;
+PPElse = "#" "else" Identifier;
+
+HeaderName
+    = HeaderString
+    | StringLiteral
+    ;
+
+token HeaderString @minimalMatch = "<" HCharSequence? ">";
+
+fragment HCharSequence
+    = HChar
+    | HCharSequence HChar
+    ;
+/* Any character of the source except new-line, >, = */
+fragment HChar
+    = [^\n\r>=]
+    ;
+
+DefineName @string = Identifier !"(";
+
+DefineValue
+    = StringLiteral
+    | IntegerLiteral
+    | FloatLiteral
+    ;
+
+
 Declaration
     = <BlockDeclaration
     | <SimpleDeclaration2
@@ -1684,9 +1733,23 @@ Typeof
     | "typeof" "(" TypeIdOrExpression ")"
     ;
 
+Comment
+    = LineComment
+    // | BlockComment
+    ;
+
+LineComment
+    = LineCommentLiteral 
+    ;
+
+token LineCommentLiteral
+    = "//" [^\n\r]*
+    ;
+
 // Not used, because the lexer of grammarcpreproc is used normally.
 token Space @ignoreToken = [ \n\r\t]+;
-token LineComment @ignoreToken = "//" [^\n]*;
 token BlockComment @ignoreToken @minimalMatch = "/*" [^]* "*/";
-token PreprocessorMetadata @ignoreToken = "#" [^\n]*;
+// WSC = Space | BlockComment;
+// WSCL = Space | LineComment | BlockComment;
+// token PreprocessorMetadata @ignoreToken = "#" [^\n]*;
 
