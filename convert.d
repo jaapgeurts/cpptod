@@ -45,10 +45,19 @@ void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", boo
     write(prefix ~ (isLastChild ? " └─" : " ├─"), "[", index.to!int, "] ");
     prefix ~= (isLastChild ? "   " : " │ ");
     if (root is null) {
-        writeln("«null»");
+        writeln("\x1b[1;31m«null»\x1b[0m");
         return;
     }
     string text = root.asText;
+    if (root.nodeType == NodeType.token)
+        text = "\x1b[1;34m" ~ text ~ "\x1b[0m";
+    else if (root.nodeType == NodeType.merged) 
+        text = "\x1b[1;35m" ~ text ~ "\x1b[0m";
+    // else if (root.nodeType == NodeType.array) 
+    //     text = "\x1b[1;33m" ~ text ~ "\x1b[0m";
+    else if (root.nodeType == NodeType.nonterminal) 
+        text = "\x1b[0;32m" ~ text ~ "\x1b[0m";
+
     writeln(text, " → ", root.nodeType);
 
     index = 0;
