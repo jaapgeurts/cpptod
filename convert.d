@@ -70,8 +70,10 @@ void transpileFile(Tree root) {
     ASTNode destinationTree = convertTranslationUnit(root);
 
     // auto xmlprinter = new XMLPrinter();
-    // xmlprinter.output = std.stdio.stdout;
+    // File newoutput = File("newtree.xml", "w");
+    // xmlprinter.output = newoutput;
     // destinationTree.accept(xmlprinter);
+    // // newoutput.close();
 
     // print the tree. 
     // TODO: replace with a dfmt printer
@@ -206,6 +208,24 @@ void convertDirective(Tree root, Declaration decl_d) {
 
 }
 
+Type convertTypeId(Tree root) {
+    if (root.nodeType != NodeType.nonterminal ||
+        root.name != "TypeId")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
+
+    Type type_d = new Type();
+    type_d.type2 = new Type2();
+
+    if (root.childs[0].nodeType == NodeType.array && root.childs[0].childs[0].name == "NameIdentifier") {
+        type_d.type2.typeIdentifierPart = new TypeIdentifierPart();
+        type_d.type2.typeIdentifierPart.identifierOrTemplateInstance = convertNameIdentifier(
+            root.childs[0].childs[0]);
+        // TODO: also convert PtrAbstractDeclarator
+    }
+    return type_d;
+
+}
+
 Type convertType(Tree root) {
     if (root.nodeType != NodeType.nonterminal ||
         root.name != "TypeKeyword")
@@ -280,6 +300,9 @@ ExpressionNode convertRelationalExpression(Tree root) {
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     RelExpression relExpr_d = new RelExpression();
+
+    relExpr_d.left = convertExpression(root.childs[0]);
+
     string operator = root.childs[1].content;
     switch (operator) {
     case "<":
@@ -297,8 +320,9 @@ ExpressionNode convertRelationalExpression(Tree root) {
     default:
         writeln("Unknown relational token: ", operator);
     }
-    relExpr_d.left = convertExpression(root.childs[0]);
+
     relExpr_d.right = convertExpression(root.childs[2]);
+
     return relExpr_d;
 
 }
@@ -310,6 +334,17 @@ ExpressionNode convertAdditiveExpression(Tree root) {
 
     AddExpression addExpr_d = new AddExpression();
     addExpr_d.left = convertExpression(root.childs[0]);
+
+    if (root.childs[1].content == "+") {
+        addExpr_d.operator = tok!"+";
+    }
+    else if (root.childs[1].content == "-") {
+        addExpr_d.operator = tok!"-";
+    }
+    else {
+        writeln("Unknown additive token: ", root.childs[1].content);
+    }
+
     addExpr_d.right = convertExpression(root.childs[2]);
 
     return addExpr_d;
@@ -322,6 +357,20 @@ ExpressionNode convertMultiplicativeExpression(Tree root) {
 
     MulExpression mulExpr_d = new MulExpression();
     mulExpr_d.left = convertExpression(root.childs[0]);
+
+    if (root.childs[1].content == "*") {
+        mulExpr_d.operator = tok!"*";
+    }
+    else if (root.childs[1].content == "/") {
+        mulExpr_d.operator = tok!"/";
+    }
+    else if (root.childs[1].content == "%") {
+        mulExpr_d.operator = tok!"%";
+    }
+    else {
+        writeln("Unknown multiplicative token: ", root.childs[1].content);
+    }
+
     mulExpr_d.right = convertExpression(root.childs[2]);
 
     return mulExpr_d;
@@ -449,15 +498,20 @@ DeleteExpression convertDeleteExpression(Tree root) {
     return deleteExpr_d;
 }
 
-CastExpression convertCastExpression(Tree root) {
+ExpressionNode convertCastExpression(Tree root) {
     if (root.nodeType != NodeType.nonterminal
         || root.name != "CastExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     CastExpression castExpr_d = new CastExpression();
-    castExpr_d.type = convertNewTypeId(root.childs[2]);
+    castExpr_d.type = convertTypeId(root.childs[1]);
+    castExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[3]);
+
+    UnaryExpression expr_d = new UnaryExpression();
+    expr_d.castExpression = castExpr_d;
+    return expr_d;
+
 }
- 
 
 UnaryExpression convertQualifiedId(Tree root) {
     if (root.nodeType != NodeType.nonterminal
@@ -470,6 +524,65 @@ UnaryExpression convertQualifiedId(Tree root) {
     return unaryExpr_d;
 }
 
+ExpressionNode convertPostfixExpression(Tree root) {
+    ExpressionNode result;
+    // check for the following is a token (operator)
+    if (root.childs[1].nodeType == NodeType.token) {
+        string operator = root.childs[1].content;
+        if (operator == "(") {
+            // function call
+            FunctionCallExpression funcCall_d = new FunctionCallExpression();
+            funcCall_d.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[0]);
+            if (root.childs[2].childs.length > 0) {
+                funcCall_d.arguments = new Arguments();
+                NamedArgumentList argsList_d = new NamedArgumentList();
+                foreach (child; root.childs[2].childs) {
+                    if (child.nodeType == NodeType.token) {
+                        // skip the comma
+                        continue;
+                    }
+                    NamedArgument namedArg_d = new NamedArgument();
+                    namedArg_d.assignExpression = convertExpression(child);
+                    argsList_d.items ~= namedArg_d;
+                }
+                funcCall_d.arguments.namedArgumentList = argsList_d;
+                showTree(root.childs[2], 5);
+            }
+            result = funcCall_d;
+            // convert function args.
+        }
+        else if (operator == "->" || operator == ".") {
+            // member access
+            // showTree(root, 3);
+            // TODO: use IdentifierOrTemplateChain instead?
+            UnaryExpression unaryExpr_d = cast(UnaryExpression) convertExpression(
+                root.childs[3]);
+            unaryExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(
+                root.childs[0]);
+            result = unaryExpr_d;
+        }
+        else if (operator == "--") {
+            // postfix decrement
+            UnaryExpression unaryExpr_d = new UnaryExpression();
+            unaryExpr_d.identifierOrTemplateInstance = convertNameIdentifier(root.childs[0]);
+            unaryExpr_d.suffix = Token(tok!"--", operator, 0, 0, 0);
+            result = unaryExpr_d;
+        }
+        else if (operator == "++") {
+            // postfix increment
+            UnaryExpression unaryExpr_d = new UnaryExpression();
+            unaryExpr_d.identifierOrTemplateInstance = convertNameIdentifier(root.childs[0]);
+            unaryExpr_d.suffix = Token(tok!"++", operator, 0, 0, 0);
+            result = unaryExpr_d;
+        }
+        else {
+            writeln("Unknown postfix token: ", operator);
+
+        }
+    }
+    return result;
+}
+
 ExpressionNode convertExpression(Tree root) {
     if (root.nodeType == NodeType.token)
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
@@ -478,26 +591,7 @@ ExpressionNode convertExpression(Tree root) {
 
     switch (root.name) {
     case "PostfixExpression":
-        // check for the following is a token (operator)
-        if (root.childs[1].nodeType == NodeType.token) {
-            string operator = root.childs[1].content;
-            if (operator == "(") {
-                // function call
-                FunctionCallExpression funcCall_d = new FunctionCallExpression();
-                funcCall_d.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[0]);
-                result = funcCall_d;
-            }
-            else if (operator == "->" || operator == ".") {
-                // member access
-                // showTree(root, 3);
-                // TODO: use IdentifierOrTemplateChain instead?
-                UnaryExpression unaryExpr_d = cast(UnaryExpression) convertExpression(
-                    root.childs[3]);
-                unaryExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(
-                    root.childs[0]);
-                result = unaryExpr_d;
-            }
-        }
+        result = convertPostfixExpression(root);
         break;
     case "TypeOrPostfixExpression":
         if (root.nodeType == NodeType.merged) {
@@ -515,6 +609,11 @@ ExpressionNode convertExpression(Tree root) {
     case "Literal":
         PrimaryExpression primaryExpr_d = new PrimaryExpression();
         primaryExpr_d.primary = Token(tok!"intLiteral", root.childs[0].content, 0, 0, 0);
+        result = primaryExpr_d;
+        break;
+    case "FloatLiteral":
+        PrimaryExpression primaryExpr_d = new PrimaryExpression();
+        primaryExpr_d.primary = Token(tok!"floatLiteral", root.childs[0].content, 0, 0, 0);
         result = primaryExpr_d;
         break;
     case "CharLiteral":

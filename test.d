@@ -20,32 +20,24 @@ int value() {
     value_ = v;
     if (box()) redraw();
     else redraw_label();
-    ;
     return 1;
   }
-  ;
   else {
     return 0;
   }
-  ;
-  ;
 }
 void setonly() {
-  value();
+  value(1);
   Fl_Group * g = parent();
   Fl_Widget a = g.array();
   for (int i = g.children();
-  ; ; ) {
-    Fl_Widget * o = ;
-    if (o != this && o.type() == FL_RADIO_BUTTON) value();
-    ;
+  ; i; ) {
+    Fl_Widget * o = a;
+    if (o != this && o.type() == FL_RADIO_BUTTON) value(0);
   }
-  ;
-  ;
 }
 void draw() {
   if (type() == FL_HIDDEN_BUTTON) return;
-  ;
   Fl_Color col = value() ? selection_color() : color();
   Fl_Boxtype bt = value() ? ( : box();
   if (compact_ && parent()) {
@@ -55,248 +47,171 @@ void draw() {
       px = 0;
       py = 0;
     }
-    ;
     else {
       px = p.x();
       py = p.y();
     }
-    ;
-    ;
-    fl_push_clip();
-    draw_box();
+    fl_push_clip(x(), y(), w(), h());
+    draw_box(bt, px, py, pw, ph, col);
     fl_pop_clip();
      hh = 5, ww = 5;
-    Fl_Color divider_color = fl_gray_ramp();
-    if () divider_color = fl_inactive();
-    ;
-    if (x()w() != pxpw) {
-      fl_color();
-      fl_yxline();
+    Fl_Color divider_color = fl_gray_ramp(FL_NUM_GRAY / 3);
+    if (!) divider_color = fl_inactive(divider_color);
+    if (x() + w() != px + pw) {
+      fl_color(divider_color);
+      fl_yxline(x() + w() - 1, y() + hh, y() + h() - 1 - hh);
     }
-    ;
-    ;
-    if (y()h() != pyph) {
-      fl_color();
-      fl_xyline();
+    if (y() + h() != py + ph) {
+      fl_color(divider_color);
+      fl_xyline(x() + ww, y() + h() - 1, x() + w() - 1 - ww);
     }
-    ;
-    ;
   }
-  ;
   else {
-    draw_box();
+    draw_box(bt, col);
   }
-  ;
-  ;
   draw_backdrop();
   if (labeltype() == FL_NORMAL_LABEL && value()) {
     Fl_Color c = labelcolor();
-    labelcolor();
+    labelcolor(fl_contrast(c, col));
     draw_label();
-    labelcolor();
+    labelcolor(c);
   }
-  ;
   else draw_label();
-  ;
   if (Fl.focus() == this) draw_focus();
-  ;
 }
 int handle() {
   int newval;
   switch (event) {
     case FL_ENTER:
-    ;
     case FL_LEAVE:
-    return 1;
-    ;
+      return 1;
     case FL_PUSH:
-    if (Fl.visible_focus() && handle()) Fl.focus();
-    ;
-    ;
+      if (Fl.visible_focus() && handle(FL_FOCUS)) Fl.focus(this);
     case FL_DRAG:
-    if (Fl.event_inside()) {
-      if (type() == FL_RADIO_BUTTON) newval = 1;
-      else newval = !oldval;
-      ;
-    }
-    ;
-    else {
-      clear_changed();
-      newval = oldval;
-    }
-    ;
-    ;
-    if (newval != value_) {
-      value_ = newval;
-      set_changed();
-      redraw();
-      if (when() & FL_WHEN_CHANGED) do_callback();
-      ;
-    }
-    ;
-    ;
-    return 1;
-    ;
-    case FL_RELEASE:
-    if (value_ == oldval) {
-      if (when() & FL_WHEN_NOT_CHANGED) do_callback();
-      ;
-      return 1;
-    }
-    ;
-    ;
-    set_changed();
-    if (type() == FL_RADIO_BUTTON) setonly();
-    else if (type() == FL_TOGGLE_BUTTON) oldval = value_;
-    else {
-      value();
-      set_changed();
-      if (when() & FL_WHEN_CHANGED) {
-        Fl_Widget_Tracker wp;
-        do_callback();
-        if (wp.deleted()) return 1;
-        ;
+      if (Fl.event_inside(this)) {
+        if (type() == FL_RADIO_BUTTON) newval = 1;
+        else newval = !oldval;
       }
-      ;
-      ;
-    }
-    ;
-    ;
-    ;
-    if (when() & FL_WHEN_RELEASE) do_callback();
-    ;
-    return 1;
-    ;
-    case FL_SHORTCUT:
-    if () return 0;
-    ;
-    if (Fl.visible_focus() && handle()) Fl.focus();
-    ;
-    goto triggered_by_keyboard;
-    ;
-    case FL_FOCUS:
-    ;
-    case FL_UNFOCUS:
-    if (Fl.visible_focus()) {
-      if (box() == FL_NO_BOX) {
-        int X = x() > 0 ? x()1 : 0;
-        int Y = y() > 0 ? y()1 : 0;
-        if (window()) damage();
-        ;
-      }
-      ;
-      else redraw();
-      ;
-      return 1;
-    }
-    ;
-    else return 0;
-    ;
-    ;
-    case FL_KEYBOARD:
-    if (Fl.focus() == this && Fl.event_key() == ' ' && ) {
-      triggered_by_keyboard:
-      ;
-      if (type() == FL_RADIO_BUTTON) {
-        if (!value_) {
-          setonly();
-          set_changed();
-          if (when() & FL_WHEN_CHANGED) do_callback();
-          else if (when() & FL_WHEN_RELEASE) do_callback();
-          ;
-          ;
-        }
-        ;
-        else {
-          if (when() & FL_WHEN_NOT_CHANGED) do_callback();
-          ;
-        }
-        ;
-        ;
-      }
-      ;
-      else if (type() == FL_TOGGLE_BUTTON) {
-        value();
-        set_changed();
-        if (when() & FL_WHEN_CHANGED) do_callback();
-        else if (when() & FL_WHEN_RELEASE) do_callback();
-        ;
-        ;
-      }
-      ;
       else {
-        simulate_key_action();
-        value();
-        if (when() & FL_WHEN_CHANGED) {
-          set_changed();
-          Fl_Widget_Tracker wp;
-          do_callback();
-          if (wp.deleted()) return 1;
-          ;
-          value();
-          set_changed();
-          do_callback();
-        }
-        ;
-        else if (when() & FL_WHEN_RELEASE) {
-          value();
-          set_changed();
-          do_callback();
-        }
-        ;
-        ;
-        ;
+        clear_changed();
+        newval = oldval;
       }
-      ;
-      ;
-      ;
+      if (newval != value_) {
+        value_ = newval;
+        set_changed();
+        redraw();
+        if (when() & FL_WHEN_CHANGED) do_callback(FL_REASON_CHANGED);
+      }
       return 1;
-    }
-    ;
-    ;
-    ;
+    case FL_RELEASE:
+      if (value_ == oldval) {
+        if (when() & FL_WHEN_NOT_CHANGED) do_callback(FL_REASON_SELECTED);
+        return 1;
+      }
+      set_changed();
+      if (type() == FL_RADIO_BUTTON) setonly();
+      else if (type() == FL_TOGGLE_BUTTON) oldval = value_;
+      else {
+        value(oldval);
+        set_changed();
+        if (when() & FL_WHEN_CHANGED) {
+          Fl_Widget_Tracker wp;
+          do_callback(FL_REASON_CHANGED);
+          if (wp.deleted()) return 1;
+        }
+      }
+      if (when() & FL_WHEN_RELEASE) do_callback(FL_REASON_RELEASED);
+      return 1;
+    case FL_SHORTCUT:
+      if (!) return 0;
+      if (Fl.visible_focus() && handle(FL_FOCUS)) Fl.focus(this);
+      goto triggered_by_keyboard;
+    case FL_FOCUS:
+    case FL_UNFOCUS:
+      if (Fl.visible_focus()) {
+        if (box() == FL_NO_BOX) {
+          int X = x() > 0 ? x() - 1 : 0;
+          int Y = y() > 0 ? y() - 1 : 0;
+          if (window()) damage(FL_DAMAGE_ALL, X, Y, w() + 2, h() + 2);
+        }
+        else redraw();
+        return 1;
+      }
+      else return 0;
+    case FL_KEYBOARD:
+      if (Fl.focus() == this && Fl.event_key() == ' ' && !) {
+        triggered_by_keyboard:
+        if (type() == FL_RADIO_BUTTON) {
+          if (!value_) {
+            setonly();
+            set_changed();
+            if (when() & FL_WHEN_CHANGED) do_callback(FL_REASON_CHANGED);
+            else if (when() & FL_WHEN_RELEASE) do_callback(FL_REASON_RELEASED);
+          }
+          else {
+            if (when() & FL_WHEN_NOT_CHANGED) do_callback(FL_REASON_SELECTED);
+          }
+        }
+        else if (type() == FL_TOGGLE_BUTTON) {
+          value(!);
+          set_changed();
+          if (when() & FL_WHEN_CHANGED) do_callback(FL_REASON_CHANGED);
+          else if (when() & FL_WHEN_RELEASE) do_callback(FL_REASON_RELEASED);
+        }
+        else {
+          simulate_key_action();
+          value(1);
+          if (when() & FL_WHEN_CHANGED) {
+            set_changed();
+            Fl_Widget_Tracker wp;
+            do_callback(FL_REASON_CHANGED);
+            if (wp.deleted()) return 1;
+            value(0);
+            set_changed();
+            do_callback(FL_REASON_RELEASED);
+          }
+          else if (when() & FL_WHEN_RELEASE) {
+            value(0);
+            set_changed();
+            do_callback(FL_REASON_RELEASED);
+          }
+        }
+        return 1;
+      }
     default:
-    return 0;
-    ;
+      return 0;
   }
-  ;
 }
 void simulate_key_action() {
   if (key_release_tracker) {
-    Fl.remove_timeout();
-    key_release_timeout();
+    Fl.remove_timeout(key_release_timeout, key_release_tracker);
+    key_release_timeout(key_release_tracker);
   }
-  ;
-  ;
-  value();
+  value(1);
   redraw();
   key_release_tracker = new Fl_Widget_Tracker;
-  Fl.add_timeout();
+  Fl.add_timeout(0.15, key_release_timeout, key_release_tracker);
 }
 void key_release_timeout() {
   Fl_Widget_Tracker * wt = ;
   if (!wt) return;
-  ;
   if (wt == key_release_tracker) key_release_tracker = 0L;
-  ;
   Fl_Button * btn = ;
   if (btn) {
-    btn.value();
+    btn.value(0);
     btn.redraw();
   }
-  ;
-  ;
   delete wt;
 }
  this() {
-  box();
-  set_flag();
+  box(FL_UP_BOX);
+  set_flag(SHORTCUT_LABEL);
 }
  this() {
-  type();
+  type(FL_RADIO_BUTTON);
 }
  this() {
-  type();
+  type(FL_TOGGLE_BUTTON);
 }
 void compact() {
   compact_ = v;
