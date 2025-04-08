@@ -41,7 +41,6 @@ void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", boo
         return;
     }
 
-
     write(prefix ~ (isLastChild ? " └─" : " ├─"), "[", index.to!int, "] ");
     prefix ~= (isLastChild ? "   " : " │ ");
     if (root is null) {
@@ -51,19 +50,19 @@ void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", boo
     string text = root.asText;
     if (root.nodeType == NodeType.token)
         text = "\x1b[1;34m" ~ text ~ "\x1b[0m";
-    else if (root.nodeType == NodeType.merged) 
+    else if (root.nodeType == NodeType.merged)
         text = "\x1b[1;35m" ~ text ~ "\x1b[0m";
     // else if (root.nodeType == NodeType.array) 
     //     text = "\x1b[1;33m" ~ text ~ "\x1b[0m";
-    else if (root.nodeType == NodeType.nonterminal) 
+    else if (root.nodeType == NodeType.nonterminal)
         text = "\x1b[0;32m" ~ text ~ "\x1b[0m";
 
     writeln(text, " → ", root.nodeType);
 
     index = 0;
     foreach (i, child; root.childs) {
-        bool isLast = i == root.childs.length-1;
-            
+        bool isLast = i == root.childs.length - 1;
+
         showTreeRec(child, index++, depth - 1, prefix, isLast);
     }
 }
@@ -83,11 +82,10 @@ void transpileFile(Tree root) {
 
     ASTNode destinationTree = convertTranslationUnit(root);
 
-    auto xmlprinter = new XMLPrinter();
-    File newoutput = File("newtree.xml", "w");
-    xmlprinter.output = newoutput;
-    destinationTree.accept(xmlprinter);
-    // newoutput.close();
+    // auto xmlprinter = new XMLPrinter();
+    // File newoutput = File("newtree.xml", "w");
+    // xmlprinter.output = newoutput;
+    // destinationTree.accept(xmlprinter);
 
     // print the tree. 
     // TODO: replace with a dfmt printer
@@ -130,10 +128,7 @@ ASTNode convertTranslationUnit(Tree tree) {
             // TODO: fill tokens from m.declaration
             break;
         case "FunctionDefinitionGlobal":
-            Declaration decl_d = new Declaration();
-            convertFunctionDefinitionGlobal(child, decl_d);
-            m.declarations ~= decl_d;
-            m.tokens ~= decl_d.tokens;
+            m.declarations ~= convertFunctionDefinitionGlobal(child);
             // TODO: fill tokens from m.declaration
             break;
         case "Directive":
@@ -867,18 +862,57 @@ void convertSimpleDeclaration1(Tree root, Declaration decl_d) {
 
 }
 
-void convertFunctionDefinitionGlobal(Tree root, Declaration decl_d) {
+Parameter convertParameterDeclaration(Tree root) {
     if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDefinitionGlobal")
-        throw new Exception("Expected FunctionDefinitionGlobal");
+        || root.name != "ParameterDeclaration")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
-    auto funcdecl_d = new FunctionDeclaration();
+    writeln("HERE1:");
+    showTree(root, 5);
 
-    auto funcdefhead_c = root.childs[0];
-    auto funcbody_c = root.childs[1];
+    Parameter param_d = new Parameter();
+    param_d.type = convertDeclSpecifierSeq(root.childs[0]);
+    param_d.name = convertDeclarator(root.childs[1]).name;
+
+    return param_d;
+
+}
+
+Parameters convertParametersAndQualifiers(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "ParametersAndQualifiers")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
+
+    Parameters params_d = new Parameters();
+
+    writeln("HERE2:");
+    showTree(root, 5);
+
+    if (auto params = root.childs[1]) {
+        foreach (child; params.childs[0].childs) {
+            if (child.nodeType == NodeType.token) {
+                // skip the comma
+                continue;
+            }
+            Parameter paramDecl_d = convertParameterDeclaration(child);
+            params_d.parameters ~= paramDecl_d;
+        }
+    }
+
+    return params_d;
+
+}
+
+FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
+
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "FunctionDefinitionHead")
+        throw new Exception("Expected FunctionDefinitionHead");
+
+    FunctionDeclaration funcdecl_d = new FunctionDeclaration();
 
     // If the type == null it must be a constructor
-    if (auto declSpecSeq = funcdefhead_c.childs[0]) {
+    if (auto declSpecSeq = root.childs[0]) {
         funcdecl_d.returnType = convertDeclSpecifierSeq(declSpecSeq);
     }
     if (funcdecl_d.returnType is null) {
@@ -888,21 +922,38 @@ void convertFunctionDefinitionGlobal(Tree root, Declaration decl_d) {
     }
     else {
         // normal function
-        auto funcdecltor_c = funcdefhead_c.childs[1];
-        string funcname = funcdecltor_c.childs[0].childs[0].childs[1].childs[0].content;
-        funcdecl_d.name = Token(tok!"", funcname, 0, 0, 0);
-        funcdecl_d.tokens ~= Token(tok!"identifier", funcname, 0, 0, 0);
+        auto funcdecltor_c = root.childs[1];
+
+        Declarator decltor_d = convertDeclarator(funcdecltor_c.childs[0]);
+        funcdecl_d.name = decltor_d.name;
+
+        funcdecl_d.parameters = convertParametersAndQualifiers(funcdecltor_c.childs[1]);
+
     }
+
+    return funcdecl_d;
+}
+
+Declaration convertFunctionDefinitionGlobal(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "FunctionDefinitionGlobal")
+        throw new Exception("Expected FunctionDefinitionGlobal");
+
+    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(root.childs[0]);
+
+    auto funcbody_c = root.childs[1];
 
     funcdecl_d.functionBody = new FunctionBody();
     funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
 
     BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
-    
+
     funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
 
+    Declaration decl_d = new Declaration();
     decl_d.functionDeclaration = funcdecl_d;
     decl_d.tokens ~= funcdecl_d.tokens;
+    return decl_d;
 }
 
 AssignExpression convertAssignmentExpression(Tree root) {
@@ -1094,6 +1145,9 @@ Statement convertSwitchStatement(Tree root) {
             return wrapDefaultStatement(defaultStmt_d);
 
         }
+        else {
+            writeln("No case or default statement found. ");
+        }
         return null;
     }
 
@@ -1112,7 +1166,7 @@ Statement convertSwitchStatement(Tree root) {
     // Convert the switch body
     BlockStatement blockStmt_d = new BlockStatement();
     blockStmt_d.declarationsAndStatements = new DeclarationsAndStatements();
-    DeclarationsAndStatements stmts_d = new DeclarationsAndStatements();
+    DeclarationsAndStatements stmts_d;
 
     CaseBlockType caseBlockType = CaseBlockType.noneType;
     CaseStatement caseStmt_d;
@@ -1121,8 +1175,10 @@ Statement convertSwitchStatement(Tree root) {
     foreach (child; statements_c) {
         if (child.name == "LabelStatement") {
             // add the case statement to the switch
-            blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= getStatements(
-                caseBlockType, caseStmt_d, defaultStmt_d, stmts_d);
+            if (caseBlockType != CaseBlockType.noneType) {
+                blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= getStatements(
+                    caseBlockType, caseStmt_d, defaultStmt_d, stmts_d);
+            }
             // create a list for the next case block
             stmts_d = new DeclarationsAndStatements();
             if (child.childs[1].content == "case") {
@@ -1137,7 +1193,12 @@ Statement convertSwitchStatement(Tree root) {
         else {
             // writeln("HERE1:");
             // showTree(child, 5);
-            stmts_d.declarationsAndStatements ~= convertStatement(child);
+            auto node = convertStatement(child);
+            // if (!node) {
+            //     writeln("HERE1:");
+            //     showTree(child, 5);
+            // }
+            stmts_d.declarationsAndStatements ~= node;
         }
     }
     // Are there left over statements?

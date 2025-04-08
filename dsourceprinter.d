@@ -32,6 +32,15 @@ class DSourcePrinter : ASTVisitor {
         fmt.writeln(";");
     }
 
+    // override void visit(const DeclarationOrStatement decl) {
+    //     if (decl.declaration) {
+    //         decl.declaration.accept(this);
+    //     }
+    //     else {
+    //         decl.statement.accept(this);
+    //     }
+    // }
+
     override void visit(const FunctionDeclaration decl) {
         if (decl.returnType !is null) {
             decl.returnType.accept(this);
@@ -39,6 +48,9 @@ class DSourcePrinter : ASTVisitor {
         fmt.write(" ");
         this.visit(decl.name);
         fmt.write("(");
+        if (decl.parameters) {
+            this.visit(decl.parameters);
+        }
         fmt.write(")");
         if (decl.functionBody) {
             fmt.write(' ');
@@ -46,6 +58,17 @@ class DSourcePrinter : ASTVisitor {
         }
     }
 
+    override void visit(const Parameters params) {
+        // TODO: can also be done with lambda expression
+        foreach (i, param; params.parameters) {
+            param.type.accept(this);
+            fmt.write(" ");
+            this.visit(param.name);
+            if (i != params.parameters.length - 1) {
+                fmt.write(", ");
+            }
+        }
+    }
     override void visit(const UnaryExpression expr) {
 
         if (expr.prefix != 0) {
@@ -55,7 +78,9 @@ class DSourcePrinter : ASTVisitor {
             super.dynamicDispatch(expr.primaryExpression);
         }
         if (expr.castExpression) {
-            expr.castExpression.accept(this);
+            // must be visit because with expr.castExpression.accept()
+            //  it will visit the fields of the cast expression
+            this.visit(expr.castExpression);
         }
         if (expr.functionCallExpression) {
             super.dynamicDispatch(expr.functionCallExpression);
@@ -69,7 +94,6 @@ class DSourcePrinter : ASTVisitor {
         if (expr.identifierOrTemplateInstance) {
             expr.identifierOrTemplateInstance.accept(this);
         }
-
 
     }
 
@@ -100,7 +124,7 @@ class DSourcePrinter : ASTVisitor {
     }
 
     override void visit(const NamedArgumentList argsList) {
-        foreach(i,arg; argsList.items) {
+        foreach (i, arg; argsList.items) {
             if (!arg.assignExpression) {
                 writeln("printer: NamedArgumentList: arg is null");
                 continue;
