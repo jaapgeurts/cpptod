@@ -61,6 +61,9 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const Parameters params) {
         // TODO: can also be done with lambda expression
         foreach (i, param; params.parameters) {
+            foreach(attrib ; param.parameterAttributes) {
+                attrib.accept(this);
+            }
             param.type.accept(this);
             fmt.write(" ");
             this.visit(param.name);
@@ -69,6 +72,22 @@ class DSourcePrinter : ASTVisitor {
             }
         }
     }
+
+    override void visit(const ParameterAttribute attrib) {
+        if (attrib.idType == tok!"const") {
+            fmt.write("const ");
+        }
+        else if (attrib.idType == tok!"in") {
+            fmt.write("in ");
+        }
+        else if (attrib.idType == tok!"out") {
+            fmt.write("out ");
+        }
+        else if (attrib.idType == tok!"ref") {
+            fmt.write("ref ");
+        }
+    }
+
     override void visit(const UnaryExpression expr) {
 
         if (expr.prefix != 0) {

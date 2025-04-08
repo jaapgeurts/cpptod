@@ -28,6 +28,7 @@ IdType[string] typeConversionMap = [
     "short": tok!"short",
     "long": tok!"long",
     "bool": tok!"bool",
+    "char": tok!"char",
 ];
 
 void showTree(Tree root, int depth = 1000, string prefix = "",) {
@@ -245,7 +246,12 @@ Type convertType(Tree root) {
     // Get the C typename
     string typename = root.childs[0].content;
     type_d.type2 = new Type2();
-    type_d.type2.builtinType = typeConversionMap[typename];
+    if (typename in typeConversionMap) {
+        type_d.type2.builtinType = typeConversionMap[typename];
+    }
+    else {
+        writeln("Conversion of ", typename, " not implemented");
+    }
     return type_d;
 
 }
@@ -778,11 +784,10 @@ Declarator convertDeclarator(Tree root) {
         declarator_d = convertNoptrDeclarator(root);
     }
     else if (root.name == "PtrDeclarator") {
-        declarator_d = new Declarator();
+        declarator_d = convertDeclarator(root.childs[1]);
         TypeSuffix ts = new TypeSuffix();
         ts.star = Token(tok!"*", "*", 0, 0, 0);
         declarator_d.cstyle ~= ts;
-        declarator_d = convertDeclarator(root.childs[1]);
     }
     else if (root.name == "InitDeclarator") {
         declarator_d = convertDeclarator(root.childs[0]);
@@ -805,6 +810,7 @@ Declarator convertDeclarator(Tree root) {
 
 }
 
+// TODO: this function should probably removed
 Type convertDeclSpecifierSeq(Tree root) {
     if (root.nodeType != NodeType.nonterminal
         || root.name != "DeclSpecifierSeq")
@@ -812,7 +818,7 @@ Type convertDeclSpecifierSeq(Tree root) {
 
     Type type_d;
 
-    root = root.childs[0].childs[0];
+    array = root.childs[0].childs;
 
     if (root.name == "TypeKeyword") {
         type_d = convertType(root);
@@ -867,12 +873,44 @@ Parameter convertParameterDeclaration(Tree root) {
         || root.name != "ParameterDeclaration")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
-    writeln("HERE1:");
-    showTree(root, 5);
-
     Parameter param_d = new Parameter();
-    param_d.type = convertDeclSpecifierSeq(root.childs[0]);
-    param_d.name = convertDeclarator(root.childs[1]).name;
+
+    // deal with declspecifierseq first
+    foreach (child; root.childs[0].childs[0].childs) {
+        if (child is null)
+            continue;
+        if (child.name == "CvQualifier") {
+            ParameterAttribute attribute = new ParameterAttribute();
+            attribute.idType = tok!"const";
+            param_d.parameterAttributes ~= attribute;
+        }
+        else if (child.name == "TypeKeyword") {
+            param_d.type = convertType(child);
+        }
+        else if (child.name == "NameIdentifier") {
+            param_d.type = new Type();
+            param_d.type.type2 = new Type2();
+            param_d.type.type2.typeIdentifierPart = new TypeIdentifierPart();
+            param_d.type.type2.typeIdentifierPart.identifierOrTemplateInstance = convertNameIdentifier(
+                child);
+        }
+    }
+    // now deal with the declarator
+    foreach (child; root.childs[1].childs) {
+        if (child.name == "PtrOperator") {
+            TypeSuffix ts = new TypeSuffix();
+            ts.star = Token(tok!"*", "", 0, 0, 0);
+            if (param_d.type is null) {
+
+                writeln("HERE1:");
+                showTree(root, 5);
+            }
+            param_d.type.typeSuffixes ~= ts;
+        }
+        else if (child.name == "DeclaratorId") {
+            param_d.name = Token(tok!"identifier", child.childs[1].childs[0].content, 0, 0, 0);
+        }
+    }
 
     return param_d;
 
@@ -883,20 +921,19 @@ Parameters convertParametersAndQualifiers(Tree root) {
         || root.name != "ParametersAndQualifiers")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
+    auto params = root.childs[1];
+    if (!params)
+        return null;
+
     Parameters params_d = new Parameters();
 
-    writeln("HERE2:");
-    showTree(root, 5);
-
-    if (auto params = root.childs[1]) {
-        foreach (child; params.childs[0].childs) {
-            if (child.nodeType == NodeType.token) {
-                // skip the comma
-                continue;
-            }
-            Parameter paramDecl_d = convertParameterDeclaration(child);
-            params_d.parameters ~= paramDecl_d;
+    foreach (child; params.childs[0].childs) {
+        if (child.nodeType == NodeType.token) {
+            // skip the comma
+            continue;
         }
+        Parameter paramDecl_d = convertParameterDeclaration(child);
+        params_d.parameters ~= paramDecl_d;
     }
 
     return params_d;
@@ -911,25 +948,23 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
 
     FunctionDeclaration funcdecl_d = new FunctionDeclaration();
 
+    auto funcdecltor_c = root.childs[1];
     // If the type == null it must be a constructor
     if (auto declSpecSeq = root.childs[0]) {
+        // normal function
         funcdecl_d.returnType = convertDeclSpecifierSeq(declSpecSeq);
+
+        Declarator decltor_d = convertDeclarator(funcdecltor_c.childs[0]);
+        funcdecl_d.name = decltor_d.name;
     }
-    if (funcdecl_d.returnType is null) {
+    else {
         // constructor
         funcdecl_d.name = Token(tok!"", "this", 0, 0, 0);
         funcdecl_d.tokens ~= Token(tok!"identifier", "this", 0, 0, 0);
     }
-    else {
-        // normal function
-        auto funcdecltor_c = root.childs[1];
 
-        Declarator decltor_d = convertDeclarator(funcdecltor_c.childs[0]);
-        funcdecl_d.name = decltor_d.name;
-
-        funcdecl_d.parameters = convertParametersAndQualifiers(funcdecltor_c.childs[1]);
-
-    }
+    if (auto params = convertParametersAndQualifiers(funcdecltor_c.childs[1]))
+        funcdecl_d.parameters = params;
 
     return funcdecl_d;
 }
@@ -1191,13 +1226,7 @@ Statement convertSwitchStatement(Tree root) {
             }
         }
         else {
-            // writeln("HERE1:");
-            // showTree(child, 5);
             auto node = convertStatement(child);
-            // if (!node) {
-            //     writeln("HERE1:");
-            //     showTree(child, 5);
-            // }
             stmts_d.declarationsAndStatements ~= node;
         }
     }
@@ -1256,7 +1285,6 @@ DeclarationOrStatement convertStatement(Tree root) {
 
     switch (root.name) {
     case "SimpleDeclaration1":
-        // writeln("HERE1:", child);
         Declaration l_decl_d = new Declaration();
         convertSimpleDeclaration1(root, l_decl_d);
         declorStmt_d.declaration = l_decl_d;
