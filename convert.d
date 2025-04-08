@@ -36,21 +36,26 @@ void showTree(Tree root, int depth = 1000, string prefix = "",) {
 
 }
 
-void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "") {
+void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", bool isLastChild = true) {
     if (depth == 0) {
         return;
     }
+
+
+    write(prefix ~ (isLastChild ? " └─" : " ├─"), "[", index.to!int, "] ");
+    prefix ~= (isLastChild ? "   " : " │ ");
     if (root is null) {
-        writeln(prefix, "«null»");
+        writeln("«null»");
         return;
     }
     string text = root.asText;
-    writeln(prefix, "[", index.to!int, "] ", text, " → ", root.nodeType);
-    prefix ~= root.childs.length > 1 ? "│  " : "   ";
+    writeln(text, " → ", root.nodeType);
 
     index = 0;
-    foreach (child; root.childs) {
-        showTreeRec(child, index++, depth - 1, prefix);
+    foreach (i, child; root.childs) {
+        bool isLast = i == root.childs.length-1;
+            
+        showTreeRec(child, index++, depth - 1, prefix, isLast);
     }
 }
 
@@ -69,11 +74,11 @@ void transpileFile(Tree root) {
 
     ASTNode destinationTree = convertTranslationUnit(root);
 
-    // auto xmlprinter = new XMLPrinter();
-    // File newoutput = File("newtree.xml", "w");
-    // xmlprinter.output = newoutput;
-    // destinationTree.accept(xmlprinter);
-    // // newoutput.close();
+    auto xmlprinter = new XMLPrinter();
+    File newoutput = File("newtree.xml", "w");
+    xmlprinter.output = newoutput;
+    destinationTree.accept(xmlprinter);
+    // newoutput.close();
 
     // print the tree. 
     // TODO: replace with a dfmt printer
@@ -286,9 +291,11 @@ ExpressionNode convertUnaryExpression(Tree root) {
 
     string operator = root.childs[0].content;
     if (operator == "!")
-        unaryExpr_d.prefix = Token(tok!"!", operator, 0, 0, 0);
+        unaryExpr_d.prefix = Token(tok!"!", "", 0, 0, 0);
 
-    unaryExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[1]);
+    UnaryExpression unaryExpr = new UnaryExpression();
+    unaryExpr.unaryExpression = cast(UnaryExpression) root.childs[1];
+    unaryExpr_d.unaryExpression = unaryExpr;
 
     return unaryExpr_d;
 
@@ -546,9 +553,11 @@ ExpressionNode convertPostfixExpression(Tree root) {
                     argsList_d.items ~= namedArg_d;
                 }
                 funcCall_d.arguments.namedArgumentList = argsList_d;
-                showTree(root.childs[2], 5);
+                // showTree(root.childs[2], 5);
             }
-            result = funcCall_d;
+            UnaryExpression unaryExpr_d = new UnaryExpression();
+            unaryExpr_d.functionCallExpression = funcCall_d;
+            result = unaryExpr_d;
             // convert function args.
         }
         else if (operator == "->" || operator == ".") {
@@ -564,15 +573,19 @@ ExpressionNode convertPostfixExpression(Tree root) {
         else if (operator == "--") {
             // postfix decrement
             UnaryExpression unaryExpr_d = new UnaryExpression();
-            unaryExpr_d.identifierOrTemplateInstance = convertNameIdentifier(root.childs[0]);
-            unaryExpr_d.suffix = Token(tok!"--", operator, 0, 0, 0);
+            unaryExpr_d.unaryExpression = new UnaryExpression();
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertNameIdentifier(
+                root.childs[0]);
+            unaryExpr_d.suffix = Token(tok!"--", "", 0, 0, 0);
             result = unaryExpr_d;
         }
         else if (operator == "++") {
             // postfix increment
             UnaryExpression unaryExpr_d = new UnaryExpression();
-            unaryExpr_d.identifierOrTemplateInstance = convertNameIdentifier(root.childs[0]);
-            unaryExpr_d.suffix = Token(tok!"++", operator, 0, 0, 0);
+            unaryExpr_d.unaryExpression = new UnaryExpression();
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertNameIdentifier(
+                root.childs[0]);
+            unaryExpr_d.suffix = Token(tok!"++", "", 0, 0, 0);
             result = unaryExpr_d;
         }
         else {
@@ -581,6 +594,29 @@ ExpressionNode convertPostfixExpression(Tree root) {
         }
     }
     return result;
+}
+
+ExpressionNode convertPrimaryExpression(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "PrimaryExpression")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
+
+    PrimaryExpression primaryExpr_d = new PrimaryExpression();
+    if (root.childs.length == 1) {
+        primaryExpr_d.primary = Token(tok!"identifier", root.childs[0].content, 0, 0, 0);
+    }
+    else if (root.childs.length == 3) {
+        Expression expr = new Expression();
+        expr.items ~= convertExpression(root.childs[1]);
+        primaryExpr_d.expression = expr;
+    }
+    else {
+        writeln("Unknown primary expression: ", root.childs.length);
+
+    }
+
+    return primaryExpr_d;
+
 }
 
 ExpressionNode convertExpression(Tree root) {
@@ -609,22 +645,26 @@ ExpressionNode convertExpression(Tree root) {
     case "Literal":
         PrimaryExpression primaryExpr_d = new PrimaryExpression();
         primaryExpr_d.primary = Token(tok!"intLiteral", root.childs[0].content, 0, 0, 0);
-        result = primaryExpr_d;
+        UnaryExpression unaryExpr_d = new UnaryExpression();
+        unaryExpr_d.primaryExpression = primaryExpr_d;
+        result = unaryExpr_d;
         break;
     case "FloatLiteral":
         PrimaryExpression primaryExpr_d = new PrimaryExpression();
         primaryExpr_d.primary = Token(tok!"floatLiteral", root.childs[0].content, 0, 0, 0);
-        result = primaryExpr_d;
+        UnaryExpression unaryExpr_d = new UnaryExpression();
+        unaryExpr_d.primaryExpression = primaryExpr_d;
+        result = unaryExpr_d;
         break;
     case "CharLiteral":
         PrimaryExpression primaryExpr_d = new PrimaryExpression();
         primaryExpr_d.primary = Token(tok!"characterLiteral", root.childs[0].content, 0, 0, 0);
-        result = primaryExpr_d;
+        UnaryExpression unaryExpr_d = new UnaryExpression();
+        unaryExpr_d.primaryExpression = primaryExpr_d;
+        result = unaryExpr_d;
         break;
     case "PrimaryExpression":
-        PrimaryExpression primaryExpr_d = new PrimaryExpression();
-        primaryExpr_d.primary = Token(tok!"identifier", root.childs[0].content, 0, 0, 0);
-        result = primaryExpr_d;
+        result = convertPrimaryExpression(root);
         break;
     case "NameIdentifier":
         UnaryExpression unaryExpr_d = new UnaryExpression();
@@ -777,7 +817,8 @@ Type convertDeclSpecifierSeq(Tree root) {
         type_d = new Type();
         type_d.type2 = new Type2();
         type_d.type2.typeIdentifierPart = new TypeIdentifierPart();
-        type_d.type2.typeIdentifierPart.identifierOrTemplateInstance = convertNameIdentifier(root);
+        type_d.type2.typeIdentifierPart.identifierOrTemplateInstance = convertNameIdentifier(
+            root);
     }
 
     return type_d;
@@ -848,7 +889,7 @@ void convertFunctionDefinitionGlobal(Tree root, Declaration decl_d) {
     funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
 
     BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
-
+    
     funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
 
     decl_d.functionDeclaration = funcdecl_d;
@@ -1055,15 +1096,14 @@ Statement convertSwitchStatement(Tree root) {
 
     // Convert the switch condition
     IfCondition ifCond_d = new IfCondition();
-    if (root.childs[2].name == "NameIdentifier") {
-        ifCond_d.identifier = Token(tok!"identifier", root.childs[2].childs[0].content, 0, 0, 0);
-    }
+    ifCond_d.expression = new Expression();
+    ifCond_d.expression.items ~= convertExpression(root.childs[2]);
     switchStmt_d.condition = ifCond_d;
 
     // Convert the switch body
     BlockStatement blockStmt_d = new BlockStatement();
     blockStmt_d.declarationsAndStatements = new DeclarationsAndStatements();
-    DeclarationsAndStatements stmts_d;
+    DeclarationsAndStatements stmts_d = new DeclarationsAndStatements();
 
     CaseBlockType caseBlockType = CaseBlockType.noneType;
     CaseStatement caseStmt_d;
@@ -1114,6 +1154,8 @@ Statement convertLabelStatement(Tree root) {
 
     LabeledStatement labelStmt_d = new LabeledStatement();
     labelStmt_d.identifier = Token(tok!"identifier", root.childs[1].content, 0, 0, 0);
+    // TODO: can this line be removed?
+    labelStmt_d.declarationOrStatement = new DeclarationOrStatement();
 
     Statement stmt_d = new Statement();
     stmt_d.statementNoCaseNoDefault = new StatementNoCaseNoDefault();
@@ -1174,7 +1216,7 @@ DeclarationOrStatement convertStatement(Tree root) {
         }
         else {
             writeln("Unknown selection statement: ", kind);
-            showTree(root, 5);
+            // showTree(root, 5);
         }
         break;
     case "JumpStatement":
@@ -1188,7 +1230,7 @@ DeclarationOrStatement convertStatement(Tree root) {
         break;
     default:
         writeln("SingleStmt: Unknown statement type: ", root.name);
-        showTree(root, 5);
+        // showTree(root, 5);
         // throw new Exception("Unknown statement type: " ~ root.name);
         break;
     }
@@ -1212,8 +1254,7 @@ BlockStatement convertCompoundStatement(Tree root) {
             writeln("Skipping comment");
             continue;
         }
-        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(
-            child);
+        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(child);
     }
     return blockStmt_d;
 }

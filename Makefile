@@ -12,8 +12,8 @@ DC = ldc2
 RELEASE = -O2 -release
 DEBUG = -g
 BUILDTYPE = $(DEBUG)
-DFLAGS = $(BUILDTYPE) --gc -I~/.dub/packages/libdparse/0.24.0/libdparse/src -I~/.dub/packages/dparsergen/0.1.2/dparsergen/core
-LFLAGS = ~/.dub/packages/libdparse/0.24.0/libdparse/libdparse.a ~/.dub/packages/dparsergen/0.1.2/dparsergen/libdparsergen_core.a
+DFLAGS = $(BUILDTYPE) --gc -I~/.dub/packages/libdparse/0.25.0/libdparse/src -I~/.dub/packages/dparsergen/0.1.2/dparsergen/core
+LFLAGS = ~/.dub/packages/libdparse/0.25.0/libdparse/libdparse.a ~/.dub/packages/dparsergen/0.1.2/dparsergen/libdparsergen_core.a
 
 #.PHONY: genlexerparser
 

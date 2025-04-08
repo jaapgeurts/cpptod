@@ -54,6 +54,12 @@ class DSourcePrinter : ASTVisitor {
         if (expr.primaryExpression) {
             super.dynamicDispatch(expr.primaryExpression);
         }
+        if (expr.castExpression) {
+            expr.castExpression.accept(this);
+        }
+        if (expr.functionCallExpression) {
+            super.dynamicDispatch(expr.functionCallExpression);
+        }
         if (expr.unaryExpression) {
             super.dynamicDispatch(expr.unaryExpression);
         }
@@ -63,6 +69,7 @@ class DSourcePrinter : ASTVisitor {
         if (expr.identifierOrTemplateInstance) {
             expr.identifierOrTemplateInstance.accept(this);
         }
+
 
     }
 
