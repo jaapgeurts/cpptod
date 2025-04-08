@@ -61,7 +61,7 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const Parameters params) {
         // TODO: can also be done with lambda expression
         foreach (i, param; params.parameters) {
-            foreach(attrib ; param.parameterAttributes) {
+            foreach (attrib; param.parameterAttributes) {
                 attrib.accept(this);
             }
             param.type.accept(this);
@@ -280,6 +280,12 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const LabeledStatement stmt) {
         this.visit(stmt.identifier);
         fmt.writeln(":");
+    }
+
+    override void visit(const TypeSuffix suffix) {
+        if (suffix.star != 0)
+            fmt.write("*");
+
     }
 
     override void visit(const Type2 type2) {

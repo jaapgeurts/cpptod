@@ -818,17 +818,17 @@ Type convertDeclSpecifierSeq(Tree root) {
 
     Type type_d;
 
-    array = root.childs[0].childs;
+    auto array = root.childs[0].childs;
 
-    if (root.name == "TypeKeyword") {
-        type_d = convertType(root);
+    if (array[0].name == "TypeKeyword") {
+        type_d = convertType(array[0]);
     }
-    else if (root.name == "NameIdentifier") {
+    else if (array[0].name == "NameIdentifier") {
         type_d = new Type();
         type_d.type2 = new Type2();
         type_d.type2.typeIdentifierPart = new TypeIdentifierPart();
         type_d.type2.typeIdentifierPart.identifierOrTemplateInstance = convertNameIdentifier(
-            root);
+            array[0]);
     }
 
     return type_d;
@@ -898,6 +898,7 @@ Parameter convertParameterDeclaration(Tree root) {
     // now deal with the declarator
     foreach (child; root.childs[1].childs) {
         if (child.name == "PtrOperator") {
+            auto t = child;
             TypeSuffix ts = new TypeSuffix();
             ts.star = Token(tok!"*", "", 0, 0, 0);
             if (param_d.type is null) {
@@ -907,8 +908,8 @@ Parameter convertParameterDeclaration(Tree root) {
             }
             param_d.type.typeSuffixes ~= ts;
         }
-        else if (child.name == "DeclaratorId") {
-            param_d.name = Token(tok!"identifier", child.childs[1].childs[0].content, 0, 0, 0);
+        else if (child.name == "NoptrDeclarator") {
+            param_d.name = Token(tok!"identifier", child.childs[0].childs[1].childs[0].content, 0, 0, 0);
         }
     }
 
@@ -952,6 +953,8 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
     // If the type == null it must be a constructor
     if (auto declSpecSeq = root.childs[0]) {
         // normal function
+        writeln("HERE2:");
+        showTree(root, 5);
         funcdecl_d.returnType = convertDeclSpecifierSeq(declSpecSeq);
 
         Declarator decltor_d = convertDeclarator(funcdecltor_c.childs[0]);
