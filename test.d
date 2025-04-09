@@ -7,12 +7,12 @@ import <FL/Fl_Window.H>;
 import <FL/fl_draw.H>;
 import <FL/Fl_Radio_Button.H>;
 import <FL/Fl_Toggle_Button.H>;
-Fl_Widget_Tracker *key_release_tracker = 0;
+Fl_Widget_Tracker** Fl_Button.key_release_tracker = 0;
 
 // There are a lot of subclasses, named Fl_*_Button.  Some of
 // them are implemented by setting the type() value and testing it
 // here.  This includes Fl_Radio_Button and Fl_Toggle_Button
-int value(int ) {
+int Fl_Button.value(int v) {
   v = v ? 1 : 0;
   oldval = v;
   clear_changed();
@@ -26,17 +26,19 @@ int value(int ) {
     return 0;
   }
 }
-void setonly() {
+
+void Fl_Button.setonly() {
   value(1);
   Fl_Group * g = parent();
-  Fl_Widget **a = g.array();
+  Fl_Widget** a = g.array();
   for (int i = g.children();
   ; i; ) {
     Fl_Widget * o = ;
     if (o != this && o.type() == FL_RADIO_BUTTON) value(0);
   }
 }
-void draw() {
+
+void Fl_Button.draw() {
   if (type() == FL_HIDDEN_BUTTON) return;
   Fl_Color col = value() ? selection_color() : color();
   Fl_Boxtype bt = value() ? down_box() ? down_box() : fl_down(box()) : box();
@@ -54,7 +56,7 @@ void draw() {
     fl_push_clip(x(), y(), w(), h());
     draw_box(bt, px, py, pw, ph, col);
     fl_pop_clip();
-     hh = 5, ww = 5;
+    int hh = 5, ww = 5;
     Fl_Color divider_color = fl_gray_ramp(FL_NUM_GRAY / 3);
     if () divider_color = fl_inactive(divider_color);
     if (x() + w() != px + pw) {
@@ -79,7 +81,8 @@ void draw() {
   else draw_label();
   if (Fl.focus() == this) draw_focus();
 }
-int handle(int ) {
+
+int Fl_Button.handle(int event) {
   int newval;
   switch (event) {
     case FL_ENTER:
@@ -182,7 +185,8 @@ int handle(int ) {
       return 0;
   }
 }
-void simulate_key_action() {
+
+void Fl_Button.simulate_key_action() {
   if (key_release_tracker) {
     Fl.remove_timeout(key_release_timeout, key_release_tracker);
     key_release_timeout(key_release_tracker);
@@ -192,7 +196,8 @@ void simulate_key_action() {
   key_release_tracker = new Fl_Widget_Tracker;
   Fl.add_timeout(0.15, key_release_timeout, key_release_tracker);
 }
-void key_release_timeout(void* d) {
+
+void Fl_Button.key_release_timeout(void* d) {
   Fl_Widget_Tracker * wt = cast(Fl_Widget_Tracker) d;
   if () return;
   if (wt == key_release_tracker) key_release_tracker = 0L;
@@ -203,16 +208,21 @@ void key_release_timeout(void* d) {
   }
   delete wt;
 }
- this(int , int , int , int , char* L) {
+
+Fl_Button.this(int X, int Y, int W, int H, const char* L) {
   box(FL_UP_BOX);
   set_flag(SHORTCUT_LABEL);
 }
- this(int , int , int , int , char* L) {
+
+Fl_Radio_Button.this(int X, int Y, int W, int H, const char* L) {
   type(FL_RADIO_BUTTON);
 }
- this(int , int , int , int , char* L) {
+
+MySpace.Fl_Toggle_Button.this(int X, int Y, int W, int H, const char* L) {
   type(FL_TOGGLE_BUTTON);
 }
-void compact(uchar ) {
+
+void Fl_Button.compact(uchar v) {
   compact_ = v;
 }
+

@@ -44,8 +44,8 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const FunctionDeclaration decl) {
         if (decl.returnType !is null) {
             decl.returnType.accept(this);
+            fmt.write(" ");
         }
-        fmt.write(" ");
         this.visit(decl.name);
         fmt.write("(");
         if (decl.parameters) {
@@ -56,15 +56,19 @@ class DSourcePrinter : ASTVisitor {
             fmt.write(' ');
             decl.functionBody.accept(this);
         }
+        fmt.writeln();
     }
 
     override void visit(const Parameters params) {
         // TODO: can also be done with lambda expression
         foreach (i, param; params.parameters) {
             foreach (attrib; param.parameterAttributes) {
-                attrib.accept(this);
+                this.visit(attrib);
             }
             param.type.accept(this);
+            foreach(suffix; param.cstyle) {
+                this.visit(suffix);
+            }
             fmt.write(" ");
             this.visit(param.name);
             if (i != params.parameters.length - 1) {
@@ -285,7 +289,6 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const TypeSuffix suffix) {
         if (suffix.star != 0)
             fmt.write("*");
-
     }
 
     override void visit(const Type2 type2) {
@@ -312,15 +315,15 @@ class DSourcePrinter : ASTVisitor {
         if (decl.type) {
             decl.type.accept(this);
         }
-        fmt.write(" ");
         foreach (i, d; decl.declarators) {
             foreach (c; d.cstyle) {
-                fmt.write(c.star.text);
+                this.visit(c);
             }
+            fmt.write(" ");
             this.visit(d.name);
             d.accept(this);
             if (i < decl.declarators.length - 1) {
-                fmt.write(", ");
+                fmt.write(",");
             }
         }
         fmt.writeln(";");
@@ -432,8 +435,13 @@ class DSourcePrinter : ASTVisitor {
     }
 
     override void visit(const Declarator decl) {
+        foreach(suffix; decl.cstyle) {
+            this.visit(suffix);
+        }
+        fmt.write(" ");
         this.visit(decl.name);
-        fmt.writeln();
+        if (decl.initializer)
+            this.visit(decl.initializer);
         decl.accept(this);
     }
 
