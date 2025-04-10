@@ -361,6 +361,7 @@ ConstantExpression @directUnwrap
 Statement
     = <LabelStatement
     | EmptyStatement
+    | Directive
     | AttributeSpecifierSeq ExpressionStatement
     | AttributeSpecifierSeq CompoundStatement
     | AttributeSpecifierSeq SelectionStatement
@@ -462,6 +463,7 @@ Directive
     = Include
     | Define
     | UnDefine
+    | If
     | IfDef
     | IfNotDef
     | EndIf
@@ -472,11 +474,12 @@ Directive
 Include = "#" "include" HeaderName;
 Define = "#" "define" DefineName DefineValue;
 UnDefine = "#" "undef" Identifier;
+If = "#" "if" Identifier? "(" Identifier ")";
 IfDef = "#" "ifdef" Identifier;
 IfNotDef = "#" "ifndef" Identifier;
-EndIf = "#" "endif" Identifier;
+EndIf = "#" "endif";
 ElIf = "#" "elif" Identifier;
-PPElse = "#" "else" Identifier;
+PPElse = "#" "else";
 
 HeaderName
     = HeaderString

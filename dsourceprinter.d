@@ -213,6 +213,12 @@ class DSourcePrinter : ASTVisitor {
         fmt.write("new ");
 
         expr.type.accept(this);
+
+        if (expr.arguments) {
+            fmt.write("(");
+            expr.arguments.accept(this);
+            fmt.write(")");
+        }
     }
 
     override void visit(const DeleteExpression expr) {

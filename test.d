@@ -1,12 +1,12 @@
 module mymodule;
 
-import <FL/Fl.H>;
-import <FL/Fl_Button.H>;
-import <FL/Fl_Group.H>;
-import <FL/Fl_Window.H>;
-import <FL/fl_draw.H>;
-import <FL/Fl_Radio_Button.H>;
-import <FL/Fl_Toggle_Button.H>;
+import FL.Fl;
+import FL.Fl_Button;
+import FL.Fl_Group;
+import FL.Fl_Window;
+import FL.fl_draw;
+import FL.Fl_Radio_Button;
+import FL.Fl_Toggle_Button;
 Fl_Widget_Tracker** Fl_Button.key_release_tracker = 0;
 // There are a lot of subclasses, named Fl_*_Button.  Some of
 // them are implemented by setting the type() value and testing it
@@ -202,7 +202,7 @@ void Fl_Button.simulate_key_action() {
     }
     value(1);
     redraw();
-    key_release_tracker = new Fl_Widget_Tracker;
+    key_release_tracker = new Fl_Widget_Tracker(this);
     Fl.add_timeout(0.15, key_release_timeout, key_release_tracker);
 }
 

@@ -206,8 +206,11 @@ void convertDirective(Tree root, Declaration decl_d) {
         ImportDeclaration importDecl = new ImportDeclaration();
         importDecl.singleImports ~= new SingleImport();
         importDecl.singleImports[0].identifierChain = new IdentifierChain();
-        importDecl.singleImports[0].identifierChain.identifiers ~=
-            child.childs[2].childs[0].content.toIdentifierToken();
+        writeln("HERE1:");
+        showTree(root);
+        string filename = child.childs[2].childs[0].content;
+        filename = filename.replace("<", "").replace(">", "").replace("/",".").replace("\\", ".").replace(".H", "");
+        importDecl.singleImports[0].identifierChain.identifiers ~= filename.toIdentifierToken();
         decl_d.importDeclaration = importDecl;
         break;
     case "Define":
@@ -237,7 +240,7 @@ void convertDirective(Tree root, Declaration decl_d) {
         }
         break;
     default:
-        throw new Exception("Unknown directive: ", child.name);
+        writeln("Unknown directive: ", child.name);
     }
 
 }
@@ -259,8 +262,6 @@ Type convertTypeIdAndNewTypeId(Tree root) {
     }
     if (root.childs.length == 2 && root.childs[1] !is null) {
         if (root.childs[1].name == "PtrAbstractDeclarator") {
-        writeln("HERE2:");
-        showTree(root);
             // todo: this may be recursive
             TypeSuffix ts = new TypeSuffix();
             ts.star = Token(tok!"*", "", 0, 0, 0);
@@ -480,7 +481,7 @@ Declarator convertDeclarator(Tree root) {
         declarator_d = convertInitDeclarator(root);
     }
     else {
-        throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
+        writeln(__LINE__,": Non-terminal or unexpected terminal: " ~ root.name);
     }
 
     return declarator_d;
@@ -530,7 +531,7 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
         index++;
     }
     else {
-        showTree(root, 5);
+        showTree(root, 20);
         writeln("SimpleDeclaration1: Unknown node: ", declSpecSeq[index].name);
     }
     varDecl_d.type = type_d;
@@ -881,8 +882,21 @@ NewExpression convertNewExpression(Tree root) {
 
     NewExpression newExpr_d = new NewExpression();
     newExpr_d.type = convertTypeIdAndNewTypeId(root.childs[3]);
-    // TODO: handle new initializer.
-    // rewrite new initializer
+
+    NamedArgumentList argsList_d = new NamedArgumentList();
+
+    // handle new initializer, read arguments
+    auto initializerClause_c = root.childs[4].childs[1].childs[0];
+    foreach(expr_c ; initializerClause_c.childs) {
+        NamedArgument namedArg_d = new NamedArgument();
+
+        auto expr_d = convertExpression(expr_c);
+        namedArg_d.assignExpression = expr_d;
+        argsList_d.items ~= namedArg_d;
+    }
+    newExpr_d.arguments = new Arguments();
+    newExpr_d.arguments.namedArgumentList = argsList_d;
+
     return newExpr_d;
 }
 
@@ -990,8 +1004,6 @@ ExpressionNode convertPrimaryExpression(Tree root) {
     else if (root.childs[0].nodeType == NodeType.token
         && root.childs[0].content == "(") {
         // this is a parenthesized expression
-        writeln("HERE1:");
-        showTree(root);
         primaryExpr_d.expression = new Expression();
         primaryExpr_d.expression.items ~= convertExpression(root.childs[1]);
     }
