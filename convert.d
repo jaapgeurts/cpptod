@@ -35,7 +35,7 @@ IdType[string] typeConversionMap = [
 // Tree printing functions
 //********************************
 
-void showTree(Tree root, int depth = 1000, string prefix = "",) {
+void showTree(Tree root, int depth = 10, string prefix = "",) {
 
     showTreeRec(root, 0, depth, prefix);
 
@@ -43,6 +43,7 @@ void showTree(Tree root, int depth = 1000, string prefix = "",) {
 
 void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", bool isLastChild = true) {
     if (depth == 0) {
+        writeln("\x1b[7;31m... (depth limit reached)\x1b[0m");
         return;
     }
 
@@ -106,14 +107,14 @@ IdentifierOrTemplateInstance toIdentifierOrTemplateInstance(string identifier) {
 void transpileFile(Tree root) {
 
     writeln(root.start());
-    showTree(root);
+    showTree(root, 50);
 
     ASTNode destinationTree = convertTranslationUnit(root);
 
-    // auto xmlprinter = new XMLPrinter();
-    // File newoutput = File("newtree.xml", "w");
-    // xmlprinter.output = newoutput;
-    // destinationTree.accept(xmlprinter);
+    auto xmlprinter = new XMLPrinter();
+    File newoutput = File("newtree.xml", "w");
+    xmlprinter.output = newoutput;
+    destinationTree.accept(xmlprinter);
 
     // print the tree. 
     // TODO: replace with a dfmt printer
@@ -252,9 +253,19 @@ Type convertTypeIdAndNewTypeId(Tree root) {
 
     Type type_d = new Type();
 
-    if (root.childs[0].nodeType == NodeType.array && root.childs[0].childs[0].name == "NameIdentifier") {
+    if (root.childs[0].nodeType == NodeType.array &&
+        root.childs[0].childs[0].name == "NameIdentifier") {
         type_d.type2 = convertIdentifier(root.childs[0].childs[0]).toType2();
-        // TODO: also convert PtrAbstractDeclarator
+    }
+    if (root.childs.length == 2 && root.childs[1] !is null) {
+        if (root.childs[1].name == "PtrAbstractDeclarator") {
+        writeln("HERE2:");
+        showTree(root);
+            // todo: this may be recursive
+            TypeSuffix ts = new TypeSuffix();
+            ts.star = Token(tok!"*", "", 0, 0, 0);
+            type_d.typeSuffixes ~= ts;
+        }
     }
     return type_d;
 
@@ -306,7 +317,8 @@ Type convertType(Tree root) {
         Type2 type2_d = new Type2();
         type2_d.typeIdentifierPart = new TypeIdentifierPart();
         type2_d.typeIdentifierPart.identifierOrTemplateInstance =
-            (left ~ right).toIdentifierOrTemplateInstance();
+            (left ~ right)
+            .toIdentifierOrTemplateInstance();
         type_d = new Type();
         type_d.type2 = type2_d;
     }
@@ -353,7 +365,6 @@ string convertIdentifier(Tree root) {
             result ~= child.childs[0].content;
         }
     }
-    writeln("Identifier: ", result);
     return result;
 }
 
@@ -391,6 +402,9 @@ Declarator convertPtrDeclarator(Tree root) {
     foreach (d; decltor_d.cstyle) {
         declarator_d.cstyle ~= d;
     }
+    // TODO: deal with const inside the declarator because 
+    // in D they are part of the type, not the variable.
+
     declarator_d.name = decltor_d.name;
     return declarator_d;
 }
@@ -625,7 +639,7 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
     }
     else {
         // magic incantation to replace the last identifier with "this"
-        string name = (decltor_d.name.text.split('.')[0..$-1]~"this").join('.');
+        string name = (decltor_d.name.text.split('.')[0 .. $ - 1] ~ "this").join('.');
         funcdecl_d.name = Token(tok!"this", name, 0, 0, 0);
     }
 
@@ -688,9 +702,11 @@ ExpressionNode convertUnaryExpression(Tree root) {
     string operator = root.childs[0].content;
     if (operator == "!")
         unaryExpr_d.prefix = Token(tok!"!", "", 0, 0, 0);
+    else if (operator == "*") // pointer deref
+        unaryExpr_d.prefix = Token(tok!"*", "", 0, 0, 0);
 
     UnaryExpression unaryExpr = new UnaryExpression();
-    unaryExpr.unaryExpression = cast(UnaryExpression) root.childs[1];
+    unaryExpr.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[1]);
     unaryExpr_d.unaryExpression = unaryExpr;
 
     return unaryExpr_d;
@@ -865,6 +881,8 @@ NewExpression convertNewExpression(Tree root) {
 
     NewExpression newExpr_d = new NewExpression();
     newExpr_d.type = convertTypeIdAndNewTypeId(root.childs[3]);
+    // TODO: handle new initializer.
+    // rewrite new initializer
     return newExpr_d;
 }
 
@@ -878,7 +896,7 @@ DeleteExpression convertDeleteExpression(Tree root) {
     return deleteExpr_d;
 }
 
-ExpressionNode convertCastExpression(Tree root) {
+UnaryExpression convertCastExpression(Tree root) {
     if (root.nodeType != NodeType.nonterminal
         || root.name != "CastExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
@@ -938,6 +956,7 @@ ExpressionNode convertPostfixExpression(Tree root) {
             unaryExpr_d.unaryExpression = new UnaryExpression();
             unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
                 .toIdentifierOrTemplateInstance();
+            // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"--", "", 0, 0, 0);
             result = unaryExpr_d;
         }
@@ -947,6 +966,7 @@ ExpressionNode convertPostfixExpression(Tree root) {
             unaryExpr_d.unaryExpression = new UnaryExpression();
             unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
                 .toIdentifierOrTemplateInstance();
+            // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"++", "", 0, 0, 0);
             result = unaryExpr_d;
         }
@@ -967,6 +987,14 @@ ExpressionNode convertPrimaryExpression(Tree root) {
     if (root.childs.length == 1) {
         primaryExpr_d.primary = Token(tok!"identifier", root.childs[0].content, 0, 0, 0);
     }
+    else if (root.childs[0].nodeType == NodeType.token
+        && root.childs[0].content == "(") {
+        // this is a parenthesized expression
+        writeln("HERE1:");
+        showTree(root);
+        primaryExpr_d.expression = new Expression();
+        primaryExpr_d.expression.items ~= convertExpression(root.childs[1]);
+    }
     else if (root.childs.length == 3) {
         Expression expr = new Expression();
         expr.items ~= convertExpression(root.childs[1]);
@@ -977,7 +1005,9 @@ ExpressionNode convertPrimaryExpression(Tree root) {
 
     }
 
-    return primaryExpr_d;
+    UnaryExpression unaryExpr_d = new UnaryExpression();
+    unaryExpr_d.primaryExpression = primaryExpr_d;
+    return unaryExpr_d;
 
 }
 
@@ -1382,6 +1412,7 @@ DeclarationOrStatement[] convertStatement(Tree root) {
             writeln("Statement: Ambiguous parse detected. Choosing alternative: ", root.name);
         }
         else {
+            // Skip the first node which is an array
             root = root.childs[1];
         }
     }

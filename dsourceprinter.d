@@ -32,14 +32,27 @@ class DSourcePrinter : ASTVisitor {
         fmt.writeln(";");
     }
 
-    // override void visit(const DeclarationOrStatement decl) {
-    //     if (decl.declaration) {
-    //         decl.declaration.accept(this);
-    //     }
-    //     else {
-    //         decl.statement.accept(this);
-    //     }
-    // }
+    override void visit(const DeclarationOrStatement decl) {
+        if (decl.declaration) {
+            decl.declaration.accept(this);
+        }
+        else {
+            decl.statement.accept(this);
+        }
+        fmt.writeln();
+    }
+
+
+    // TODO: consider whether const in C means immutable or const in D
+    override void visit(const Attribute attr) {
+
+        attr.accept(this);
+
+        if (attr.attribute == tok!"const") {
+            fmt.write("const ");
+        }
+
+    }
 
     override void visit(const FunctionDeclaration decl) {
         if (decl.returnType !is null) {
@@ -57,6 +70,7 @@ class DSourcePrinter : ASTVisitor {
             decl.functionBody.accept(this);
         }
         fmt.writeln();
+        fmt.writeln();
     }
 
     override void visit(const Parameters params) {
@@ -66,7 +80,7 @@ class DSourcePrinter : ASTVisitor {
                 this.visit(attrib);
             }
             param.type.accept(this);
-            foreach(suffix; param.cstyle) {
+            foreach (suffix; param.cstyle) {
                 this.visit(suffix);
             }
             fmt.write(" ");
@@ -92,10 +106,30 @@ class DSourcePrinter : ASTVisitor {
         }
     }
 
+    override void visit(const PrimaryExpression expr) {
+        if (expr.expression) {
+            fmt.write("(");
+            super.dynamicDispatch(expr.expression);
+            fmt.write(")");
+        }
+        else {
+            expr.accept(this);
+        }
+    }
+
     override void visit(const UnaryExpression expr) {
 
         if (expr.prefix != 0) {
-            this.visit(expr.prefix);
+            if (expr.prefix == tok!"!") {
+                fmt.write("!");
+            }
+            else if (expr.prefix == tok!"*") {
+                fmt.write("*");
+            }
+            else {
+                writeln("Unknown prefix ", expr.prefix);
+                this.visit(expr.prefix);
+            }
         }
         if (expr.primaryExpression) {
             super.dynamicDispatch(expr.primaryExpression);
@@ -116,6 +150,18 @@ class DSourcePrinter : ASTVisitor {
         }
         if (expr.identifierOrTemplateInstance) {
             expr.identifierOrTemplateInstance.accept(this);
+        }
+        if (expr.suffix != 0) {
+            if (expr.suffix == tok!"++") {
+                fmt.write("++");
+            }
+            else if (expr.suffix == tok!"--") {
+                fmt.write("--");
+            }
+            else {
+                writeln("Unknown suffix ", expr.suffix);
+                this.visit(expr.suffix);
+            }
         }
 
     }
@@ -179,7 +225,7 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const CastExpression expr) {
         fmt.write("cast(");
         if (expr.type) {
-            expr.type.accept(this);
+            this.visit(expr.type);
         }
         fmt.write(") ");
         if (expr.unaryExpression) {
@@ -193,7 +239,7 @@ class DSourcePrinter : ASTVisitor {
 
     override void visit(const ExpressionStatement stmt) {
         super.dynamicDispatch(stmt.expression);
-        fmt.writeln(";");
+        fmt.write(";");
     }
 
     override void visit(const BlockStatement block) {
@@ -201,7 +247,7 @@ class DSourcePrinter : ASTVisitor {
         fmt.indent();
         block.accept(this);
         fmt.dedent();
-        fmt.writeln("}");
+        fmt.write("}");
     }
 
     override void visit(const IfStatement stmt) {
@@ -213,6 +259,7 @@ class DSourcePrinter : ASTVisitor {
         // A if statement must have a then block
         stmt.thenStatement.accept(this);
         if (stmt.elseStatement) {
+            fmt.writeln();
             fmt.write("else ");
             stmt.elseStatement.accept(this);
         }
@@ -224,7 +271,7 @@ class DSourcePrinter : ASTVisitor {
             fmt.write(' ');
             super.dynamicDispatch(stmt.expression);
         }
-        fmt.writeln(";");
+        fmt.write(";");
     }
 
     override void visit(const GotoStatement stmt) {
@@ -235,14 +282,14 @@ class DSourcePrinter : ASTVisitor {
         else {
             this.visit(stmt.label);
         }
-        fmt.writeln(";");
+        fmt.write(";");
     }
 
     override void visit(const ForStatement stmt) {
         fmt.write("for (");
         if (stmt.initialization)
             stmt.initialization.accept(this);
-        fmt.write("; ");
+        // fmt.write("; ");
         if (stmt.test)
             super.dynamicDispatch(stmt.test);
         fmt.write("; ");
@@ -312,8 +359,9 @@ class DSourcePrinter : ASTVisitor {
                 fmt.write(" ");
             }
         }
+
         if (decl.type) {
-            decl.type.accept(this);
+            this.visit(decl.type);
         }
         foreach (i, d; decl.declarators) {
             foreach (c; d.cstyle) {
@@ -326,10 +374,11 @@ class DSourcePrinter : ASTVisitor {
                 fmt.write(",");
             }
         }
-        fmt.writeln(";");
+        fmt.write(";");
 
         if (decl.comment)
             fmt.writeln(decl.comment);
+
     }
 
     override void visit(const AssignExpression expr) {
@@ -435,7 +484,7 @@ class DSourcePrinter : ASTVisitor {
     }
 
     override void visit(const Declarator decl) {
-        foreach(suffix; decl.cstyle) {
+        foreach (suffix; decl.cstyle) {
             this.visit(suffix);
         }
         fmt.write(" ");

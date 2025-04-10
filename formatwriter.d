@@ -12,12 +12,12 @@ class FormatWriter
     private int depth = 0;
     private bool atLineStart = true;
 
-    enum INDENT = "  ";
+    private string INDENT = "    "; // 4 spaces
 
-
-    this(File sink)
+    this(File sink, string indent = "    " )
     {
         this.sink = sink;
+        INDENT = indent;
     }
 
     // Indented write
