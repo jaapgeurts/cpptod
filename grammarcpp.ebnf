@@ -361,7 +361,7 @@ ConstantExpression @directUnwrap
 Statement
     = <LabelStatement
     | EmptyStatement
-    | Directive
+    | PP_Directive
     | AttributeSpecifierSeq ExpressionStatement
     | AttributeSpecifierSeq CompoundStatement
     | AttributeSpecifierSeq SelectionStatement
@@ -455,51 +455,54 @@ DeclarationSeq @array @noOptEmpty
     = @empty
     | DeclarationSeq Declaration
     | DeclarationSeq LinkageSpecification
-    | DeclarationSeq Directive
+    | DeclarationSeq PP_Directive
     | DeclarationSeq LineComment
     ;
 
-Directive
-    = Include
-    | Define
-    | UnDefine
-    | If
-    | IfDef
-    | IfNotDef
-    | EndIf
-    | ElIf
-    | PPElse
+PP_Directive
+    = PP_Include
+    | PP_Define
+    | PP_UnDefine
+    | PP_If
+    | PP_IfDef
+    | PP_IfNotDef
+    | PP_EndIf
+    | PP_ElIf
+    | PP_Else
     ;
 
-Include = "#" "include" HeaderName;
-Define = "#" "define" DefineName DefineValue;
-UnDefine = "#" "undef" Identifier;
-If = "#" "if" Identifier? "(" Identifier ")";
-IfDef = "#" "ifdef" Identifier;
-IfNotDef = "#" "ifndef" Identifier;
-EndIf = "#" "endif";
-ElIf = "#" "elif" Identifier;
-PPElse = "#" "else";
+PP_Include = "#" "include" PP_HeaderName;
+PP_Define = "#" "define" PP_DefineName PP_DefineValue?;
+PP_UnDefine = "#" "undef" Identifier;
+PP_If = "#" "if" Identifier? "(" Identifier ")";
+PP_IfDef = "#" "ifdef" Identifier;
+PP_IfNotDef = "#" "ifndef" Identifier;
+PP_EndIf = "#" "endif";
+PP_ElIf = "#" "elif" Identifier;
+PP_Else = "#" "else";
 
-HeaderName
-    = HeaderString
+PP_HeaderName
+    = PP_HeaderString
     | StringLiteral
     ;
 
-token HeaderString @minimalMatch = "<" HCharSequence? ">";
-
-fragment HCharSequence
-    = HChar
-    | HCharSequence HChar
-    ;
-/* Any character of the source except new-line, >, = */
-fragment HChar
-    = [^\n\r>=]
+// TODO: this is an issue with if (a < b) and ( c > d )
+token PP_HeaderString @minimalMatch 
+    = "<" PP_HCharSequence ">"
     ;
 
-DefineName @string = Identifier !"(";
+fragment PP_HCharSequence
+    = PP_HChar
+    | PP_HCharSequence PP_HChar
+    ;
+/* Any character of the source except new-line, >, =, " */
+fragment PP_HChar
+    = [^\n\r>=\"]
+    ;
 
-DefineValue
+PP_DefineName @string = Identifier !"(";
+
+PP_DefineValue
     = StringLiteral
     | IntegerLiteral
     | FloatLiteral
@@ -1157,8 +1160,9 @@ ClassKey
 // Section class.mem
 MemberSpecification @array
     = @empty
-    | MemberSpecification MemberDeclaration
-    | MemberSpecification AccessSpecifierWithColon
+    | MemberSpecification LineComment
+    | MemberSpecification MemberDeclaration LineComment?
+    | MemberSpecification AccessSpecifierWithColon LineComment?
     ;
 AccessSpecifierWithColon
     = AccessSpecifier ":"

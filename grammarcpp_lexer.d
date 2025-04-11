@@ -78,7 +78,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
         goto start;
 
     state0:
-        // ("!") ("!=") ("#") ("%") ("%=") ("&") ("&&") ("&=") ("(") (")") ("*") ("*=") ("+") ("++") ("+=") (",") ("-") ("--") ("-=") ("->") ("->*") (".") (".*") ("...") ("/") ("/=") (":") ("::") (";") ("<") ("<<") ("<<=") ("<=") ("<=>") ("=") ("==") (">") (">=") (">>=") ("?") ("[") ("]") ("^") ("^=") ("_Bool") ("_Static_assert") ("__DATE__") ("__FILE__") ("__FUNCTION__") ("__PRETTY_FUNCTION__") ("__TIME__") ("__alignof__") ("__asm") ("__asm__") ("__attribute") ("__attribute__") ("__builtin_offsetof") ("__builtin_va_arg") ("__builtin_va_copy") ("__builtin_va_end") ("__builtin_va_list") ("__builtin_va_start") ("__cdecl") ("__cppconv_nullptr") ("__declspec") ("__decltype") ("__extension__") ("__extern_inline") ("__fastcall") ("__func__") ("__inline") ("__inline__") ("__ptr32") ("__ptr64") ("__regcall") ("__restrict") ("__restrict__") ("__sptr") ("__stdcall") ("__thiscall") ("__thread") ("__typeof") ("__typeof__") ("__uptr") ("__vectorcall") ("__volatile__") ("__w64") ("alignas") ("alignof") ("and") ("and_eq") ("asm") ("auto") ("bitand") ("bitor") ("bool") ("break") ("case") ("catch") ("char") ("char16_t") ("char32_t") ("class") ("compl") ("const") ("const_cast") ("constexpr") ("continue") ("decltype") ("default") ("define") ("delete") ("do") ("double") ("dynamic_cast") ("elif") ("else") ("endif") ("enum") ("explicit") ("export") ("extern") ("false") ("float") ("for") ("friend") ("goto") ("if") ("ifdef") ("ifndef") ("include") ("inline") ("int") ("long") ("mutable") ("namespace") ("new") ("noexcept") ("not") ("not_eq") ("nullptr") ("operator") ("or") ("or_eq") ("private") ("protected") ("public") ("register") ("reinterpret_cast") ("restrict") ("return") ("short") ("signed") ("sizeof") ("static") ("static_assert") ("static_cast") ("struct") ("switch") ("template") ("this") ("thread_local") ("throw") ("true") ("try") ("typedef") ("typeid") ("typename") ("typeof") ("undef") ("union") ("unsigned") ("using") ("virtual") ("void") ("volatile") ("wchar_t") ("while") ("xor") ("xor_eq") ("{") ("|") ("|=") ("||") ("}") ("~") (BuiltinInt) (CharacterLiteral) (FloatingLiteral) (HeaderString) (Identifier) (IntegerLiteral) (LineCommentLiteral) (StringLiteral) (UserDefinedCharacterLiteral) (UserDefinedFloatingLiteral) (UserDefinedIntegerLiteral) (Space) (BlockComment)
+        // ("!") ("!=") ("#") ("%") ("%=") ("&") ("&&") ("&=") ("(") (")") ("*") ("*=") ("+") ("++") ("+=") (",") ("-") ("--") ("-=") ("->") ("->*") (".") (".*") ("...") ("/") ("/=") (":") ("::") (";") ("<") ("<<") ("<<=") ("<=") ("<=>") ("=") ("==") (">") (">=") (">>=") ("?") ("[") ("]") ("^") ("^=") ("_Bool") ("_Static_assert") ("__DATE__") ("__FILE__") ("__FUNCTION__") ("__PRETTY_FUNCTION__") ("__TIME__") ("__alignof__") ("__asm") ("__asm__") ("__attribute") ("__attribute__") ("__builtin_offsetof") ("__builtin_va_arg") ("__builtin_va_copy") ("__builtin_va_end") ("__builtin_va_list") ("__builtin_va_start") ("__cdecl") ("__cppconv_nullptr") ("__declspec") ("__decltype") ("__extension__") ("__extern_inline") ("__fastcall") ("__func__") ("__inline") ("__inline__") ("__ptr32") ("__ptr64") ("__regcall") ("__restrict") ("__restrict__") ("__sptr") ("__stdcall") ("__thiscall") ("__thread") ("__typeof") ("__typeof__") ("__uptr") ("__vectorcall") ("__volatile__") ("__w64") ("alignas") ("alignof") ("and") ("and_eq") ("asm") ("auto") ("bitand") ("bitor") ("bool") ("break") ("case") ("catch") ("char") ("char16_t") ("char32_t") ("class") ("compl") ("const") ("const_cast") ("constexpr") ("continue") ("decltype") ("default") ("define") ("delete") ("do") ("double") ("dynamic_cast") ("elif") ("else") ("endif") ("enum") ("explicit") ("export") ("extern") ("false") ("float") ("for") ("friend") ("goto") ("if") ("ifdef") ("ifndef") ("include") ("inline") ("int") ("long") ("mutable") ("namespace") ("new") ("noexcept") ("not") ("not_eq") ("nullptr") ("operator") ("or") ("or_eq") ("private") ("protected") ("public") ("register") ("reinterpret_cast") ("restrict") ("return") ("short") ("signed") ("sizeof") ("static") ("static_assert") ("static_cast") ("struct") ("switch") ("template") ("this") ("thread_local") ("throw") ("true") ("try") ("typedef") ("typeid") ("typename") ("typeof") ("undef") ("union") ("unsigned") ("using") ("virtual") ("void") ("volatile") ("wchar_t") ("while") ("xor") ("xor_eq") ("{") ("|") ("|=") ("||") ("}") ("~") (BuiltinInt) (CharacterLiteral) (FloatingLiteral) (Identifier) (IntegerLiteral) (LineCommentLiteral) (PP_HeaderString) (StringLiteral) (UserDefinedCharacterLiteral) (UserDefinedFloatingLiteral) (UserDefinedIntegerLiteral) (Space) (BlockComment)
         // path:
     start:
         {
@@ -2277,7 +2277,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
         }
 
     state52:
-        // "<" ("<<") ("<<=") ("<=") ("<=>") (HeaderString)
+        // "<" ("<<") ("<<=") ("<=") ("<=>") (PP_HeaderString)
         // path: [<]
         {
             if (inputCopy.length == 0)
@@ -2303,16 +2303,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     inputCopy = inputCopy[1 .. $];
                     goto state57;
                 }
-                else if (currentChar == '>')
-                {
-                    assert(inputCopy.ptr >= input.ptr);
-                    foundSymbol = tokenID!"\"<\"";
-                    foundLength = inputCopy.ptr - input.ptr;
-                    foundIsIgnore = false;
-                    inputCopy = inputCopy[1 .. $];
-                    goto state56;
-                }
-                else if (currentChar == '\n' || currentChar == '\r')
+                else if (currentChar == '\n' || currentChar == '\r' || currentChar == '\"' || currentChar == '>')
                 {
                     goto endstate52;
                 }
@@ -2323,7 +2314,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     foundLength = inputCopy.ptr - input.ptr;
                     foundIsIgnore = false;
                     inputCopy = inputCopy[1 .. $];
-                    goto state55;
+                    goto state56;
                 }
             }
             else
@@ -2339,7 +2330,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     foundLength = inputCopy.ptr - input.ptr;
                     foundIsIgnore = false;
                     inputCopy = inputCopyNext;
-                    goto state55;
+                    goto state56;
                 }
             }
         }
@@ -2353,7 +2344,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
         }
 
     state53:
-        // "<<" ("<<=") (HeaderString)
+        // "<<" ("<<=") (PP_HeaderString)
         // path: [<] [<]
         {
             if (inputCopy.length == 0)
@@ -2377,9 +2368,9 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     foundLength = inputCopy.ptr - input.ptr;
                     foundIsIgnore = false;
                     inputCopy = inputCopy[1 .. $];
-                    goto state56;
+                    goto state55;
                 }
-                else if (currentChar == '\n' || currentChar == '\r')
+                else if (currentChar == '\n' || currentChar == '\r' || currentChar == '\"')
                 {
                     goto endstate53;
                 }
@@ -2390,7 +2381,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     foundLength = inputCopy.ptr - input.ptr;
                     foundIsIgnore = false;
                     inputCopy = inputCopy[1 .. $];
-                    goto state55;
+                    goto state56;
                 }
             }
             else
@@ -2406,7 +2397,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                     foundLength = inputCopy.ptr - input.ptr;
                     foundIsIgnore = false;
                     inputCopy = inputCopyNext;
-                    goto state55;
+                    goto state56;
                 }
             }
         }
@@ -2437,8 +2428,25 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
         }
 
     state55:
-        // (HeaderString)
-        // path: [<] [^\n\r<->]
+        // PP_HeaderString
+        // path: [<] [<] [>]
+        {
+            if (inputCopy.length == 0)
+                goto endstate55;
+            goto endstate55;
+        }
+        endstate55:
+        {
+            assert(inputCopy.ptr >= input.ptr);
+            foundSymbol = tokenID!"PP_HeaderString";
+            foundLength = inputCopy.ptr - input.ptr;
+            foundIsIgnore = false;
+            goto lexerend;
+        }
+
+    state56:
+        // (PP_HeaderString)
+        // path: [<] [^\n\r\"<->]
         {
             if (inputCopy.length == 0)
             {
@@ -2447,7 +2455,7 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                 else if (foundSymbol != SymbolID.max)
                     goto lexerend;
                 else
-                    throw lexerException("EOF", "[^\\n\\r=]", inputCopy.ptr - input.ptr);
+                    throw lexerException("EOF", "[^\\n\\r\\\"=]", inputCopy.ptr - input.ptr);
             }
             char currentChar = inputCopy[0];
             if (currentChar < 0x80)
@@ -2455,19 +2463,19 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
                 if (currentChar == '>')
                 {
                     inputCopy = inputCopy[1 .. $];
-                    goto state56;
+                    goto state55;
                 }
-                else if (currentChar == '\n' || currentChar == '\r' || currentChar == '=')
+                else if (currentChar == '\n' || currentChar == '\r' || currentChar == '\"' || currentChar == '=')
                 {
                     if (foundSymbol != SymbolID.max)
                         goto lexerend;
                     else
-                        throw lexerException(text("Error unexpected \'", currentChar.escapeChar(false), "\'"), "[^\\n\\r=]", inputCopy.ptr - input.ptr);
+                        throw lexerException(text("Error unexpected \'", currentChar.escapeChar(false), "\'"), "[^\\n\\r\\\"=]", inputCopy.ptr - input.ptr);
                 }
                 else
                 {
                     inputCopy = inputCopy[1 .. $];
-                    goto state55;
+                    goto state56;
                 }
             }
             else
@@ -2479,26 +2487,9 @@ struct Lexer(Location, bool includeIgnoredTokens = false)
 
                 {
                     inputCopy = inputCopyNext;
-                    goto state55;
+                    goto state56;
                 }
             }
-        }
-
-    state56:
-        // HeaderString
-        // path: [<] [>]
-        {
-            if (inputCopy.length == 0)
-                goto endstate56;
-            goto endstate56;
-        }
-        endstate56:
-        {
-            assert(inputCopy.ptr >= input.ptr);
-            foundSymbol = tokenID!"HeaderString";
-            foundLength = inputCopy.ptr - input.ptr;
-            foundIsIgnore = false;
-            goto lexerend;
         }
 
     state57:
@@ -46951,17 +46942,17 @@ immutable allNonterminalTokens = [
     /* 2187: */ immutable(Nonterminal)("BuiltinInt", NonterminalFlags.none, [], []),
     /* 2188: */ immutable(Nonterminal)("CharacterLiteral", NonterminalFlags.none, [], []),
     /* 2189: */ immutable(Nonterminal)("FloatingLiteral", NonterminalFlags.none, [], []),
-    /* 2190: */ immutable(Nonterminal)("HeaderString", NonterminalFlags.none, ["minimalMatch"], []),
-    /* 2191: */ immutable(Nonterminal)("Identifier", NonterminalFlags.none, ["lowPrio"], []),
-    /* 2192: */ immutable(Nonterminal)("IntegerLiteral", NonterminalFlags.none, [], []),
-    /* 2193: */ immutable(Nonterminal)("LineCommentLiteral", NonterminalFlags.none, [], []),
+    /* 2190: */ immutable(Nonterminal)("Identifier", NonterminalFlags.none, ["lowPrio"], []),
+    /* 2191: */ immutable(Nonterminal)("IntegerLiteral", NonterminalFlags.none, [], []),
+    /* 2192: */ immutable(Nonterminal)("LineCommentLiteral", NonterminalFlags.none, [], []),
+    /* 2193: */ immutable(Nonterminal)("PP_HeaderString", NonterminalFlags.none, ["minimalMatch"], []),
     /* 2194: */ immutable(Nonterminal)("StringLiteral", NonterminalFlags.none, ["minimalMatch"], []),
     /* 2195: */ immutable(Nonterminal)("UserDefinedCharacterLiteral", NonterminalFlags.none, [], []),
     /* 2196: */ immutable(Nonterminal)("UserDefinedFloatingLiteral", NonterminalFlags.none, ["lowPrio"], []),
     /* 2197: */ immutable(Nonterminal)("UserDefinedIntegerLiteral", NonterminalFlags.none, ["lowPrio"], []),
     /* 2198: */ immutable(Nonterminal)("$flushreduces", NonterminalFlags.none, [], []),
-    /* 2199: */ immutable(Nonterminal)("HCharSequence", NonterminalFlags.none, [], []),
-    /* 2200: */ immutable(Nonterminal)("HChar", NonterminalFlags.none, [], []),
+    /* 2199: */ immutable(Nonterminal)("PP_HCharSequence", NonterminalFlags.none, [], []),
+    /* 2200: */ immutable(Nonterminal)("PP_HChar", NonterminalFlags.none, [], []),
     /* 2201: */ immutable(Nonterminal)("DecimalLiteral", NonterminalFlags.none, [], []),
     /* 2202: */ immutable(Nonterminal)("OctalLiteral", NonterminalFlags.none, [], []),
     /* 2203: */ immutable(Nonterminal)("HexadecimalLiteral", NonterminalFlags.none, [], []),
@@ -46999,27 +46990,26 @@ immutable allNonterminalTokens = [
     /* 2235: */ immutable(Nonterminal)("RChar", NonterminalFlags.none, [], []),
     /* 2236: */ immutable(Nonterminal)("DCharSequence", NonterminalFlags.none, [], []),
     /* 2237: */ immutable(Nonterminal)("DChar", NonterminalFlags.none, [], []),
-    /* 2238: */ immutable(Nonterminal)("HCharSequence?", NonterminalFlags.none, [], []),
-    /* 2239: */ immutable(Nonterminal)("{\"\"_|_\"u\"}", NonterminalFlags.none, [], []),
-    /* 2240: */ immutable(Nonterminal)("{\"8\"_|_\"16\"_|_\"32\"_|_\"64\"_|_\"max\"}", NonterminalFlags.none, [], []),
-    /* 2241: */ immutable(Nonterminal)("{\"8\"_|_\"16\"_|_\"32\"_|_\"64\"_|_\"128\"}", NonterminalFlags.none, [], []),
-    /* 2242: */ immutable(Nonterminal)("IntegerSuffix?", NonterminalFlags.none, [], []),
-    /* 2243: */ immutable(Nonterminal)("LongSuffix?", NonterminalFlags.none, [], []),
-    /* 2244: */ immutable(Nonterminal)("LongLongSuffix?", NonterminalFlags.none, [], []),
-    /* 2245: */ immutable(Nonterminal)("UnsignedSuffix?", NonterminalFlags.none, [], []),
-    /* 2246: */ immutable(Nonterminal)("ExponentPart?", NonterminalFlags.none, [], []),
-    /* 2247: */ immutable(Nonterminal)("FloatingSuffix?", NonterminalFlags.none, [], []),
-    /* 2248: */ immutable(Nonterminal)("DigitSequence?", NonterminalFlags.none, [], []),
-    /* 2249: */ immutable(Nonterminal)("Sign?", NonterminalFlags.none, [], []),
-    /* 2250: */ immutable(Nonterminal)("$tokenminus{UdSuffix_-_{[eE]_[^]*}}", NonterminalFlags.none, [], []),
-    /* 2251: */ immutable(Nonterminal)("{[eE]_[^]*}", NonterminalFlags.none, [], []),
-    /* 2252: */ immutable(Nonterminal)("[^]+", NonterminalFlags.none, ["array"], []),
-    /* 2253: */ immutable(Nonterminal)("[^]*", NonterminalFlags.none, ["array"], []),
-    /* 2254: */ immutable(Nonterminal)("[^\\n\\r]+", NonterminalFlags.none, ["array"], []),
-    /* 2255: */ immutable(Nonterminal)("[^\\n\\r]*", NonterminalFlags.none, ["array"], []),
-    /* 2256: */ immutable(Nonterminal)("[_\\n\\r\\t]+", NonterminalFlags.none, ["array"], []),
-    /* 2257: */ immutable(Nonterminal)("\"\\r\"?", NonterminalFlags.none, [], []),
-    /* 2258: */ immutable(Nonterminal)("EncodingPrefix?", NonterminalFlags.none, [], []),
-    /* 2259: */ immutable(Nonterminal)("SCharSequence?", NonterminalFlags.none, [], []),
-    /* 2260: */ immutable(Nonterminal)("RCharSequence?", NonterminalFlags.none, [], []),
+    /* 2238: */ immutable(Nonterminal)("{\"\"_|_\"u\"}", NonterminalFlags.none, [], []),
+    /* 2239: */ immutable(Nonterminal)("{\"8\"_|_\"16\"_|_\"32\"_|_\"64\"_|_\"max\"}", NonterminalFlags.none, [], []),
+    /* 2240: */ immutable(Nonterminal)("{\"8\"_|_\"16\"_|_\"32\"_|_\"64\"_|_\"128\"}", NonterminalFlags.none, [], []),
+    /* 2241: */ immutable(Nonterminal)("IntegerSuffix?", NonterminalFlags.none, [], []),
+    /* 2242: */ immutable(Nonterminal)("LongSuffix?", NonterminalFlags.none, [], []),
+    /* 2243: */ immutable(Nonterminal)("LongLongSuffix?", NonterminalFlags.none, [], []),
+    /* 2244: */ immutable(Nonterminal)("UnsignedSuffix?", NonterminalFlags.none, [], []),
+    /* 2245: */ immutable(Nonterminal)("ExponentPart?", NonterminalFlags.none, [], []),
+    /* 2246: */ immutable(Nonterminal)("FloatingSuffix?", NonterminalFlags.none, [], []),
+    /* 2247: */ immutable(Nonterminal)("DigitSequence?", NonterminalFlags.none, [], []),
+    /* 2248: */ immutable(Nonterminal)("Sign?", NonterminalFlags.none, [], []),
+    /* 2249: */ immutable(Nonterminal)("$tokenminus{UdSuffix_-_{[eE]_[^]*}}", NonterminalFlags.none, [], []),
+    /* 2250: */ immutable(Nonterminal)("{[eE]_[^]*}", NonterminalFlags.none, [], []),
+    /* 2251: */ immutable(Nonterminal)("[^]+", NonterminalFlags.none, ["array"], []),
+    /* 2252: */ immutable(Nonterminal)("[^]*", NonterminalFlags.none, ["array"], []),
+    /* 2253: */ immutable(Nonterminal)("[^\\n\\r]+", NonterminalFlags.none, ["array"], []),
+    /* 2254: */ immutable(Nonterminal)("[^\\n\\r]*", NonterminalFlags.none, ["array"], []),
+    /* 2255: */ immutable(Nonterminal)("[_\\n\\r\\t]+", NonterminalFlags.none, ["array"], []),
+    /* 2256: */ immutable(Nonterminal)("\"\\r\"?", NonterminalFlags.none, [], []),
+    /* 2257: */ immutable(Nonterminal)("EncodingPrefix?", NonterminalFlags.none, [], []),
+    /* 2258: */ immutable(Nonterminal)("SCharSequence?", NonterminalFlags.none, [], []),
+    /* 2259: */ immutable(Nonterminal)("RCharSequence?", NonterminalFlags.none, [], []),
 ];

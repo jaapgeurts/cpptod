@@ -156,7 +156,7 @@ ASTNode convertTranslationUnit(Tree tree) {
             m.declarations ~= convertFunctionDefinitionGlobal(child);
             // TODO: fill tokens from m.declaration
             break;
-        case "Directive":
+        case "PP_Directive":
             Declaration decl = new Declaration();
             convertDirective(child, decl);
             m.declarations ~= decl;
@@ -196,12 +196,12 @@ ASTNode convertTranslationUnit(Tree tree) {
 void convertDirective(Tree root, Declaration decl_d) {
 
     if (root.nodeType != NodeType.nonterminal
-        || root.name != "Directive")
+        || root.name != "PP_Directive")
         throw new Exception("Expected Directive");
 
     auto child = root.childs[0];
     switch (child.name) {
-    case "Include":
+    case "PP_Include":
         // showTree(child);
         ImportDeclaration importDecl = new ImportDeclaration();
         importDecl.singleImports ~= new SingleImport();
@@ -213,8 +213,8 @@ void convertDirective(Tree root, Declaration decl_d) {
         importDecl.singleImports[0].identifierChain.identifiers ~= filename.toIdentifierToken();
         decl_d.importDeclaration = importDecl;
         break;
-    case "Define":
-        if (child.childs[3].name == "DefineValue") {
+    case "PP_Define":
+        if (child.childs[3].name == "PP_DefineValue") {
             // simple variable define
             auto varDecl = new VariableDeclaration();
             varDecl.storageClasses ~= new StorageClass();

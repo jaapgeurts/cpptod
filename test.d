@@ -7,7 +7,7 @@ import FL.Fl_Window;
 import FL.fl_draw;
 import FL.Fl_Radio_Button;
 import FL.Fl_Toggle_Button;
-Fl_Widget_Tracker** Fl_Button.key_release_tracker = 0;
+Fl_Widget_Tracker* Fl_Button.key_release_tracker = 0;
 // There are a lot of subclasses, named Fl_*_Button.  Some of
 // them are implemented by setting the type() value and testing it
 // here.  This includes Fl_Radio_Button and Fl_Toggle_Button
@@ -227,7 +227,7 @@ Fl_Radio_Button.this(int X, int Y, int W, int H, const char* L) {
     type(FL_RADIO_BUTTON);
 }
 
-MySpace.Fl_Toggle_Button.this(int X, int Y, int W, int H, const char* L) {
+Fl_Toggle_Button.this(int X, int Y, int W, int H, const char* L) {
     type(FL_TOGGLE_BUTTON);
 }
 
