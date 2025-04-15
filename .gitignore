@@ -9,6 +9,10 @@ cpptod.dll
 cpptod.a
 cpptod.lib
 cpptod-test-*
+grammarcpp.d
+grammarcpp_lexer.d
+grammarcppcppgen.d
+grammarcpreproc_lexer.d
 *.exe
 *.pdb
 *.o

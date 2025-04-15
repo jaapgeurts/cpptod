@@ -51,10 +51,32 @@ class DSourcePrinter : ASTVisitor {
         if (attr.attribute == tok!"const") {
             fmt.write("const ");
         }
-
+        else if (attr.attribute == tok!"public") {
+            fmt.write("public ");
+        }
+        else if (attr.attribute == tok!"private") {
+            fmt.write("private ");
+        }
+        else if (attr.attribute == tok!"protected") {
+            fmt.write("protected ");
+        }
     }
 
+    override void visit(const AttributeDeclaration decl) {
+        decl.accept(this);
+        fmt.writeln(":");
+    }
+        
+
     override void visit(const FunctionDeclaration decl) {
+
+        if (decl.storageClasses) {
+            foreach (sc; decl.storageClasses) {
+                sc.accept(this);
+                fmt.write(" ");
+            }
+        }
+
         if (decl.returnType !is null) {
             decl.returnType.accept(this);
             fmt.write(" ");
@@ -68,6 +90,8 @@ class DSourcePrinter : ASTVisitor {
         if (decl.functionBody) {
             fmt.write(' ');
             decl.functionBody.accept(this);
+        } else {
+            fmt.write(";");
         }
         fmt.writeln();
         fmt.writeln();
@@ -107,7 +131,10 @@ class DSourcePrinter : ASTVisitor {
     }
 
     override void visit(const PrimaryExpression expr) {
-        if (expr.expression) {
+        if (expr.primary != 0) {
+            this.visit(expr.primary);
+        }
+        else if (expr.expression) {
             fmt.write("(");
             super.dynamicDispatch(expr.expression);
             fmt.write(")");
@@ -357,8 +384,25 @@ class DSourcePrinter : ASTVisitor {
         fmt.write(chain.identifiers.map!(i => i.text).join('.'));
     }
 
+    override void visit(const AutoDeclarationPart part) {
+
+        this.visit(part.identifier);
+        this.visit(part.initializer);
+    }
+
+    override void visit(const AutoDeclaration decl) {
+        foreach (sc; decl.storageClasses) {
+            sc.accept(this);
+            fmt.write(" ");
+        }
+        foreach (part; decl.parts)
+            this.visit(part);
+
+    }
+
+
     override void visit(const VariableDeclaration decl) {
-        fmt.write();
+        // fmt.write();
         if (decl.storageClasses) {
             foreach (sc; decl.storageClasses) {
                 sc.accept(this);
@@ -370,6 +414,10 @@ class DSourcePrinter : ASTVisitor {
             this.visit(decl.type);
         }
         foreach (i, d; decl.declarators) {
+            if (d is null) {
+                writeln("printer: VariableDeclaration: d is null");
+                continue;
+            }
             foreach (c; d.cstyle) {
                 this.visit(c);
             }
@@ -380,20 +428,75 @@ class DSourcePrinter : ASTVisitor {
                 fmt.write(",");
             }
         }
-        fmt.write(";");
 
+        if (decl.autoDeclaration)
+            this.visit(decl.autoDeclaration);
+
+        fmt.write(";");
+        // TODO: consider how to format newlines
+        fmt.writeln();
         if (decl.comment)
             fmt.writeln(decl.comment);
 
     }
 
+    override void visit(const BaseClassList list) {
+        fmt.write(" : ");
+
+        foreach(i,bclass; list.items) {
+            bclass.accept(this);
+            if (i != list.items.length - 1) {
+                fmt.write(", ");
+            }
+        }
+    }
+
+    override void visit(const ClassDeclaration decl) {
+        fmt.write("class ");
+        this.visit(decl.name);
+        decl.accept(this);
+    }
+
+    override void visit(const StructBody bdy) {
+        fmt.writeln(" {");
+        fmt.indent();
+        bdy.accept(this);
+        fmt.dedent();
+        fmt.writeln("}");
+    }
+
     override void visit(const AssignExpression expr) {
         auto expr2 = (cast(Expression) expr.expression);
+        if (expr2 is null){
+            stderr.writeln("Assign expression: expr2 is null");
+            return;
+        }
         if (expr2.items.length >= 1) {
             super.dynamicDispatch(expr2.items[0]);
         }
 
-        fmt.write(" = ");
+        if (expr.operator == tok!"=")
+            fmt.write(" = ");
+        else if (expr.operator == tok!"+=")
+            fmt.write(" += ");
+        else if (expr.operator == tok!"-=")
+            fmt.write(" -= ");
+        else if (expr.operator == tok!"*=")
+            fmt.write(" *= ");
+        else if (expr.operator == tok!"/=")
+            fmt.write(" /= ");
+        else if (expr.operator == tok!"%=")
+            fmt.write(" %= ");
+        else if (expr.operator == tok!"&=")
+            fmt.write(" &= ");
+        else if (expr.operator == tok!"|=")
+            fmt.write(" |= ");
+        else if (expr.operator == tok!"^=")
+            fmt.write(" ^= ");
+        else
+            writeln("unknown token when printing");
+
+        // super.dynamicDispatch(expr.expression);
 
         if (expr2.items.length >= 2) {
             super.dynamicDispatch(expr2.items[1]);

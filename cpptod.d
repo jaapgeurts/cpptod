@@ -13,6 +13,7 @@ import std.conv;
 import std.exception;
 import std.file;
 import std.stdio;
+import std.path;
 
 import convert;
 
@@ -91,101 +92,6 @@ struct Location
 
 alias Tree = DynamicParseTree!(Location, LocationRangeStartLength);
 alias CreatorCpp = DynamicParseTreeCreator!(grammarcpp, Location, LocationRangeStartLength);
-// alias CreatorPreproc = DynamicParseTreeCreator!(grammarcpreproc, Location,
-//         LocationRangeStartLength);
-
-/**
-State of parser and current location during parse.
-*/
-// struct ParseState
-// {
-//     grammarcpp.PushParser!(CreatorCpp, string) pushParser;
-//     string currentFilename;
-//     int lineOffset;
-// }
-
-
-/**
-Push tokens from preprocessed file into parser.
-*/
-// void pushTokens(ref ParseState state, Tree preprocTree)
-// {
-//     if (preprocTree.nodeType == NodeType.array)
-//     {
-//         foreach (child; preprocTree.childs)
-//         {
-//             pushTokens(state, child);
-//         }
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "EmptyLine")
-//     {
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "PreprocessingFile")
-//     {
-//         pushTokens(state, preprocTree.childs[0]);
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "TextLine")
-//     {
-//         pushTokens(state, preprocTree.childs[1]);
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "LineAnnotation")
-//     {
-//         if (preprocTree.hasChildWithName("filename"))
-//         {
-//             Tree childFilename = preprocTree.childByName("filename");
-//             enforce(childFilename.content.startsWith("\""));
-//             enforce(childFilename.content.endsWith("\""));
-//             state.currentFilename = childFilename.content[1 .. $ - 1];
-//         }
-//         Tree childLine = preprocTree.childByName("line");
-//         state.lineOffset = childLine.content.to!int - int(preprocTree.end.line + 1);
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "Token")
-//     {
-//         alias Lexer = grammarcpp_lexer.Lexer!(Location);
-
-//         assert(preprocTree.childs[0].nodeType == NodeType.token);
-//         auto lexer = Lexer(preprocTree.childs[0].content);
-//         Location location = preprocTree.childs[0].start;
-//         location.filename = state.currentFilename;
-//         location.loc.line += state.lineOffset;
-//         lexer.front.currentLocation = location;
-
-//         enforce(!lexer.empty);
-
-//         SymbolID symbolID = grammarcpp.translateTokenIdFromLexer!Lexer(lexer.front.symbol);
-//         state.pushParser.pushToken(symbolID, lexer.front.content,
-//                 lexer.front.currentLocation, lexer.front.currentTokenEnd);
-
-//         lexer.popFront();
-//         enforce(lexer.empty);
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "VarDefine")
-//     {
-//         // // print var define
-//         // writeln("VarDefine ", preprocTree.toString());
-//         // printd(preprocTree);
-
-//         // writeln("Vardefine:enum ", preprocTree.childs[5].content ," = ", preprocTree.childs[7].childs[0].childs[0].content ,";");
-
-//         // // FIXME: push a enum <name> = <val>;
-//         // // for now push a const int <name> = <val>;
-       
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "FuncDefine")
-//     {
-//         // writeln("FuncDefine ", preprocTree.toString());
-//     }
-//     else if (preprocTree.nodeType == NodeType.nonterminal && preprocTree.name == "Conditional") 
-//     {
-//         // writeln("Conditional: ", preprocTree.toString());
-//     }
-//     else 
-//     {
-//         writeln("Unknown node type ", preprocTree.nodeType, " ", preprocTree.name);
-//         // throw new Exception("Only preprocessed code supported");
-//     }
-// }
 
 int main(string[] args)
 {
@@ -227,22 +133,6 @@ int main(string[] args)
 
     string inText = cast(string) read(filename);
 
-    // Preprocess file
-    // Tree preprocTree;
-    // try
-    // {
-    //     auto creator = new CreatorPreproc;
-    //     preprocTree = grammarcpreproc.parse!(CreatorPreproc,
-    //             grammarcpreproc_lexer.Lexer!Location)(inText, creator,
-    //             Location(LocationAll.init, filename));
-    //     assert(preprocTree.inputLength.bytePos <= inText.length);
-    // }
-    // catch (Exception e)
-    // {
-    //     stderr.writeln(e);
-    //     return 1;
-    // }
-
 
     // Parse C++ code
     Tree tree;
@@ -250,22 +140,7 @@ int main(string[] args)
     {
         auto creator = new CreatorCpp;
 
-        // lexTree = grammarcpp.parse!(CreatorCpp,
-        //           grammarcpp.Lexer!Location)(inText, creator,
-        //           Location(LocationAll.init, filename));
-        //   assert(lexTree.inputLength.bytePos <= inText.length);
 
-        // ParseState state = ParseState(grammarcpp.PushParser!(CreatorCpp,
-        //         string)(creator), filename);
-        // state.pushParser.startParseTranslationUnit();
-
-        // // pushTokens(state, preprocTree);
-
-        // state.pushParser.pushEnd();
-
-        // tree = state.pushParser.getParseTree!"TranslationUnit";
-
-        // parse all at once; do not preprocess
         tree = grammarcpp.parse!(CreatorCpp,
             grammarcpp_lexer.Lexer!Location)(inText,
                 creator, Location(LocationAll.init, filename)
@@ -279,10 +154,14 @@ int main(string[] args)
     }
 
     // printTree(stdout, preprocTree, verbose);
-
     // printTree(stdout, tree, verbose);
 
-    transpileFile(tree);
+    // convert input filename to output filename
+    string outFilename = stripExtension(filename) ~ ".d";
+    File output = File(outFilename, "w");
+
+
+    transpileFile(tree,output);
 
     return 0;
 }

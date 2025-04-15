@@ -5,6 +5,7 @@ import std.array;
 import std.stdio;
 import std.range : repeat;
 import std.conv;
+import std.typecons;
 
 // for import type Tree
 // defined there as:
@@ -19,6 +20,10 @@ import dparse.astprinter;
 import dparse.lexer;
 
 import dsourceprinter;
+
+// For deconstructing a DeclSpecifierSeq
+// TODO: consider using a struct instead of a tuple
+alias DeclSpecifierSeq = Tuple!(string, "typeName", string[], "qualifiers");
 
 IdType[string] typeConversionMap = [
     "int": tok!"int",
@@ -100,11 +105,70 @@ IdentifierOrTemplateInstance toIdentifierOrTemplateInstance(string identifier) {
     return id;
 }
 
+Type getType(DeclSpecifierSeq decl) {
+
+    Type2 type2_d = new Type2();
+    // Check if the type needs to be converted
+    if (auto newType = decl.typeName in typeConversionMap) {
+        // It is also a native type
+        type2_d.builtinType = *newType;
+    }
+    else {
+        type2_d.typeIdentifierPart = new TypeIdentifierPart();
+        type2_d.typeIdentifierPart.identifierOrTemplateInstance =
+            decl.typeName.toIdentifierOrTemplateInstance();
+    }
+    Type type_d = new Type();
+    type_d.type2 = type2_d;
+    return type_d;
+}
+
+Attribute[] getAttributes(DeclSpecifierSeq decl) {
+    Attribute[] attributes;
+    foreach (qualifier; decl.qualifiers) {
+        if (qualifier == "const") {
+            Attribute attribute = new Attribute();
+            attribute.attribute = Token(tok!"const", "const", 0, 0, 0);
+            attributes ~= attribute;
+        }
+    }
+    return attributes;
+}
+
+ParameterAttribute[] getParamAttributes(DeclSpecifierSeq decl) {
+    ParameterAttribute[] attributes;
+    foreach (qualifier; decl.qualifiers) {
+        if (qualifier == "const") {
+            ParameterAttribute attribute = new ParameterAttribute();
+            attribute.idType = tok!"const";
+            attributes ~= attribute;
+        }
+    }
+    return attributes;
+}
+
+StorageClass[] getStorageClasses(DeclSpecifierSeq decl) {
+    StorageClass[] storageClasses;
+    foreach (qualifier; decl.qualifiers) {
+        if (qualifier == "static") {
+            StorageClass storageClass = new StorageClass();
+            storageClass.token = Token(tok!"static", "static", 0, 0, 0);
+            storageClasses ~= storageClass;
+        }
+        else if (qualifier == "extern") {
+            StorageClass storageClass = new StorageClass();
+            storageClass.token = Token(tok!"extern", "extern", 0, 0, 0);
+            storageClasses ~= storageClass;
+        }
+    }
+    return storageClasses;
+}
+
 //**************************
 // Begin main transpiler functions
 //**************************
 
-void transpileFile(Tree root) {
+void transpileFile(Tree root, File output) {
 
     writeln(root.start());
     showTree(root, 50);
@@ -118,7 +182,6 @@ void transpileFile(Tree root) {
 
     // print the tree. 
     // TODO: replace with a dfmt printer
-    File output = File("test.d", "w");
     DSourcePrinter printer = new DSourcePrinter(output);
     destinationTree.accept(printer);
     output.close();
@@ -150,17 +213,19 @@ ASTNode convertTranslationUnit(Tree tree) {
 
         switch (child.name) {
         case "SimpleDeclaration1":
+            // declarators + initializers
             m.declarations ~= convertSimpleDeclaration1(child);
+            break;
+        case "SimpleDeclaration3":
+            // only declarators
+            m.declarations ~= convertSimpleDeclaration3(child);
             break;
         case "FunctionDefinitionGlobal":
             m.declarations ~= convertFunctionDefinitionGlobal(child);
             // TODO: fill tokens from m.declaration
             break;
         case "PP_Directive":
-            Declaration decl = new Declaration();
-            convertDirective(child, decl);
-            m.declarations ~= decl;
-            m.tokens ~= decl.tokens;
+            m.declarations ~= convertDirective(child);
             break;
         case "LineComment":
             // append it to the last declaration
@@ -184,8 +249,10 @@ ASTNode convertTranslationUnit(Tree tree) {
             }
             break;
         default:
-            stderr.writeln("Encountered an unknown node in TranslationUnit: ", child.nodeType, ":", child.name, "\"", child
-                    .toString(), "\"");
+            //            stderr.writeln("Encountered an unknown node in TranslationUnit: ", child.nodeType, ":", child.name, "\"", child.toString(), "\"");
+            stderr.writeln("Encountered an unknown node in TranslationUnit");
+            showTree(child);
+            break;
         }
     }
 
@@ -193,7 +260,7 @@ ASTNode convertTranslationUnit(Tree tree) {
 
 }
 
-void convertDirective(Tree root, Declaration decl_d) {
+Declaration convertDirective(Tree root) {
 
     if (root.nodeType != NodeType.nonterminal
         || root.name != "PP_Directive")
@@ -206,42 +273,64 @@ void convertDirective(Tree root, Declaration decl_d) {
         ImportDeclaration importDecl = new ImportDeclaration();
         importDecl.singleImports ~= new SingleImport();
         importDecl.singleImports[0].identifierChain = new IdentifierChain();
-        writeln("HERE1:");
-        showTree(root);
         string filename = child.childs[2].childs[0].content;
-        filename = filename.replace("<", "").replace(">", "").replace("/",".").replace("\\", ".").replace(".H", "");
+        filename = filename.replace("<", "").replace(">", "").replace("/", ".")
+            .replace("\\", ".").replace(".H", "");
         importDecl.singleImports[0].identifierChain.identifiers ~= filename.toIdentifierToken();
-        decl_d.importDeclaration = importDecl;
+        Declaration decl = new Declaration();
+        decl.importDeclaration = importDecl;
+        return decl;
         break;
     case "PP_Define":
-        if (child.childs[3].name == "PP_DefineValue") {
+        if (child.childs.length > 3 && child.childs[3]!is null && child.childs[3].name == "PP_DefineValue") {
             // simple variable define
-            auto varDecl = new VariableDeclaration();
-            varDecl.storageClasses ~= new StorageClass();
-            varDecl.storageClasses[0].token = Token(tok!"enum", "enum", 0, 0, 0);
-            varDecl.declarators ~= new Declarator();
-            // showTree(child, 3);
-            varDecl.declarators[0].name = child.childs[2].content.toIdentifierToken();
-            varDecl.declarators[0].initializer = new Initializer();
-            varDecl.declarators[0].initializer.nonVoidInitializer = new NonVoidInitializer();
-            auto assignExpr = new AssignExpression();
-            assignExpr.operator = tok!"=";
-            auto unaryExpr = new UnaryExpression();
-            unaryExpr.primaryExpression = new PrimaryExpression();
-            // TODO: check what it is by parsing the token value.
-            unaryExpr.primaryExpression.primary = Token(tok!"int", child.childs[3].childs[0].content, 0, 0, 0);
-            assignExpr.expression = unaryExpr;
-            varDecl.declarators[0].initializer.nonVoidInitializer.assignExpression = assignExpr;
-            decl_d.variableDeclaration = varDecl;
+
+            // The storage class enum
+            StorageClass storageClass = new StorageClass();
+            storageClass.token = Token(tok!"enum", "enum", 0, 0, 0);
+
+            // The initializer
+            PrimaryExpression primaryExpression = new PrimaryExpression();
+            primaryExpression.primary = Token(tok!"int", child.childs[3].childs[0].content, 0, 0, 0);
+            UnaryExpression unaryExpr = new UnaryExpression();
+            unaryExpr.primaryExpression = primaryExpression;
+            NonVoidInitializer nonVoidInit = new NonVoidInitializer();
+            nonVoidInit.assignExpression = unaryExpr;
+
+            Initializer init = new Initializer();
+            init.nonVoidInitializer = nonVoidInit;
+            AutoDeclarationPart part = new AutoDeclarationPart();
+            part.initializer = init;
+            part.identifier = child.childs[2].content.toIdentifierToken();
+
+            AutoDeclaration autoDecl = new AutoDeclaration();
+            autoDecl.storageClasses ~= storageClass;
+            autoDecl.parts ~= part;
+
+            VariableDeclaration varDecl = new VariableDeclaration();
+            varDecl.autoDeclaration = autoDecl;
+            Declaration decl = new Declaration();
+            decl.variableDeclaration = varDecl;
+
+            return decl;
         }
         else {
-            // showTree(child, 3);
-            writeln("Unknown define type: ", child.childs[3].name);
+            showTree(child, 3);
+            writeln("Unknown define type: ", child.childs[2].asText);
         }
+        break;
+    case "PP_IfNotDef":
+        // showTree(child, 3);
+        // TODO: apply heuristics.
+        // 1. if the ifdef is at the beginning of the file,
+        //    and the file is a header file, then it is a header guard.
+        writeln("Not implemented PP_IfNotDef: ");
         break;
     default:
         writeln("Unknown directive: ", child.name);
     }
+
+    return new Declaration();
 
 }
 
@@ -260,7 +349,7 @@ Type convertTypeIdAndNewTypeId(Tree root) {
         root.childs[0].childs[0].name == "NameIdentifier") {
         type_d.type2 = convertIdentifier(root.childs[0].childs[0]).toType2();
     }
-    if (root.childs.length == 2 && root.childs[1] !is null) {
+    if (root.childs.length == 2 && root.childs[1]!is null) {
         if (root.childs[1].name == "PtrAbstractDeclarator") {
             // todo: this may be recursive
             TypeSuffix ts = new TypeSuffix();
@@ -270,6 +359,32 @@ Type convertTypeIdAndNewTypeId(Tree root) {
     }
     return type_d;
 
+}
+
+DeclSpecifierSeq convertDeclSpecifierSequence(Tree root) {
+    if (root.nodeType != NodeType.nonterminal ||
+        root.name != "DeclSpecifierSeq")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
+
+    DeclSpecifierSeq decl;
+
+    string[] typeName;
+    foreach (child; root.childs[0].childs) {
+        if (child.name == "TypeKeyword" ||
+            child.name == "NameIdentifier") {
+            typeName ~= child.childs[0].content;
+        }
+        else if (child.name == "CvQualifier" ||
+            child.name == "StorageClassSpecifier") {
+            // these things are specific to D only
+            decl.qualifiers ~= child.childs[0].content;
+        }
+    }
+    // If there were multiple types, then we need to join them.
+    // E.g. "unsigned int" or "unsigned long long"
+    decl.typeName = typeName.join(' ');
+
+    return decl;
 }
 
 Type convertTypeKeyword(Tree root) {
@@ -481,7 +596,7 @@ Declarator convertDeclarator(Tree root) {
         declarator_d = convertInitDeclarator(root);
     }
     else {
-        writeln(__LINE__,": Non-terminal or unexpected terminal: " ~ root.name);
+        writeln(__LINE__, ": Non-terminal or unexpected terminal: " ~ root.name);
     }
 
     return declarator_d;
@@ -491,7 +606,7 @@ Declarator convertDeclarator(Tree root) {
 /* convertSimpleDeclaration1
  * 
  * Converts a SimpleDeclaration1 node to one or more Declaration nodes.
- * In C, pointers/arrays attach to variable names; in D, they attach to the type.
+ * TODO: In C, pointers/arrays attach to variable names; in D, they attach to the type.
  * So we check each declarator, and if some use pointers/arrays, we split them.
  *
  * Example: int* a, b, *c, d[10]; → int* a, c; int b; int[10] d;
@@ -507,34 +622,14 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
 
     Declaration[] declarations_d;
 
-    Declaration decl_d = new Declaration();
+    // Get the declspecifierseq
+    DeclSpecifierSeq declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+
     VariableDeclaration varDecl_d = new VariableDeclaration();
-    Type type_d;
 
     // first focus on the declspecifier
-    auto declSpecSeq = root.childs[0].childs[0].childs;
-    int index = 0;
-    if (declSpecSeq[index].name == "CvQualifier") {
-        Attribute attribute = new Attribute();
-        attribute.attribute = Token(tok!"const", "", 0, 0, 0);
-        decl_d.attributes ~= attribute;
-        index++;
-    }
-
-    if (declSpecSeq[index].name == "TypeKeyword") {
-        type_d = convertTypeKeyword(declSpecSeq[index]);
-        index++;
-    }
-    else if (declSpecSeq[index].name == "NameIdentifier") {
-        type_d = new Type();
-        type_d.type2 = convertIdentifier(declSpecSeq[index]).toType2();
-        index++;
-    }
-    else {
-        showTree(root, 20);
-        writeln("SimpleDeclaration1: Unknown node: ", declSpecSeq[index].name);
-    }
-    varDecl_d.type = type_d;
+    varDecl_d.type = declSpecSeq.getType();
+    varDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
 
     // walk through all the declarators
     foreach (child; root.childs[1].childs) {
@@ -544,42 +639,182 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
         }
         varDecl_d.declarators ~= convertDeclarator(child);
     }
-    decl_d.variableDeclaration = varDecl_d;
 
+    Declaration decl_d = new Declaration();
+    decl_d.attributes ~= declSpecSeq.getAttributes();
+    decl_d.variableDeclaration = varDecl_d;
     declarations_d ~= decl_d;
     return declarations_d;
 }
 
+Declaration convertSimpleDeclaration3(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "SimpleDeclaration3")
+        throw new Exception("Expected SimpleDeclaration3");
+
+    Declaration decl_d = new Declaration();
+
+    // first focus on the class declarator
+    auto declSpecSeq = root.childs[0].childs[0];
+    int index = 0;
+
+    if (declSpecSeq.childs[0].name == "ClassSpecifier") {
+        // this is class
+        ClassDeclaration classDecl_d = new ClassDeclaration();
+
+        // process the class head
+        auto classHead_c = declSpecSeq.childs[0].childs[0];
+        foreach (child; classHead_c.childs) {
+            if (child.name == "ClassHeadName") {
+                classDecl_d.name = convertIdentifier(child.childs[1]).toIdentifierToken();
+            }
+            else if (child.name == "BaseClause") {
+                BaseClass baseClass_d = new BaseClass();
+                baseClass_d.type2 = convertIdentifier(child.childs[1].childs[0].childs[3].childs[1])
+                    .toType2();
+                BaseClassList list_d = new BaseClassList();
+                list_d.items ~= baseClass_d;
+                classDecl_d.baseClassList = list_d;
+            }
+        }
+
+        // process the class body
+        StructBody structBody_d = new StructBody();
+        auto classBody_c = declSpecSeq.childs[0].childs[1];
+        foreach (decl; classBody_c.childs[1].childs) {
+            if (decl is null)
+                continue;
+
+            if (decl.name == "MemberDeclaration1") {
+                structBody_d.declarations ~= convertMemberDeclaration1(decl);
+            }
+            else if (decl.name == "FunctionDefinitionMember") {
+                // This is a complete member function definition
+                // Function signature + body.
+                structBody_d.declarations ~= convertFunctionDefinitionMember(decl);
+            }
+            else if (decl.name == "AccessSpecifierWithColon") {
+                AttributeDeclaration accessDecl_d = new AttributeDeclaration();
+                Attribute attribute = new Attribute();
+                auto accessSpec = decl.childs[0].childs[0].content;
+                if (accessSpec == "public") {
+                    attribute.attribute = Token(tok!"public", "public", 0, 0, 0);
+                } else if (accessSpec == "private") {
+                    attribute.attribute = Token(tok!"private", "private", 0, 0, 0);
+                } else if (accessSpec == "protected") {
+                    attribute.attribute = Token(tok!"protected", "protected", 0, 0, 0);
+                } else {
+                    writeln("Unknown access specifier: ", accessSpec);
+                }
+                accessDecl_d.attribute = attribute;
+                Declaration t = new Declaration();
+                t.attributeDeclaration = accessDecl_d;
+                structBody_d.declarations ~= t;
+            }
+            else {
+                writeln("Unknown class body declaration: ", decl.name);
+            }
+
+        }
+        classDecl_d.structBody = structBody_d;
+        decl_d.classDeclaration = classDecl_d;
+    }
+    else {
+        writeln("Unknown decl declspecifier: ", declSpecSeq.childs[0].name);
+    }
+
+    return decl_d;
+}
+
+// TODO: this could be an array too.
+Declaration convertMemberDeclaration1(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "MemberDeclaration1")
+        throw new Exception("Expected MemberDeclaration1");
+
+    Declaration decl_d = new Declaration();
+
+    // get the type for this declaration
+    DeclSpecifierSeq declSpecSeq;
+    bool isConstructor = false;
+    if (root.childs[0] is null) {
+        isConstructor = true;
+    }
+    else {
+        declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+    }
+
+    auto declTor_c = root.childs[1].childs[0];
+
+    decl_d.attributes ~= declSpecSeq.getAttributes();
+
+    if (declTor_c.name == "FunctionDeclarator") {
+        // This is a function signature only.
+        FunctionDeclaration funcDecl_d = new FunctionDeclaration();
+        if (isConstructor) {
+            // constructor
+            funcDecl_d.name = Token(tok!"this", "this", 0, 0, 0);
+        }
+        else {
+            // normal function
+            Declarator declTor_d = convertNoptrDeclarator(declTor_c.childs[0]);
+            funcDecl_d.name = declTor_d.name;
+            funcDecl_d.returnType = declSpecSeq.getType();
+        }
+        funcDecl_d.storageClasses = declSpecSeq.getStorageClasses();
+
+        // now add the parameters
+        funcDecl_d.parameters = convertParametersAndQualifiers(declTor_c.childs[1]);
+
+        decl_d.functionDeclaration = funcDecl_d;
+    }
+    else {
+        // If it's not a function, then it must be a variable declaration
+        // variable type
+
+        VariableDeclaration varDecl_d = new VariableDeclaration();
+        // varDecl_d.declarators ~= decltor_d;
+        varDecl_d.type = declSpecSeq.getType();
+        varDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
+
+        // walk through all the declarators
+        foreach (child; root.childs[1].childs) {
+            if (child.nodeType == NodeType.token) {
+                // skip the comma
+                continue;
+            }
+            varDecl_d.declarators ~= convertDeclarator(child);
+        }
+
+        decl_d.variableDeclaration = varDecl_d;
+    }
+    return decl_d;
+}
+
 Parameter convertParameterDeclaration(Tree root) {
     if (root.nodeType != NodeType.nonterminal
-        || root.name != "ParameterDeclaration")
+        || (root.name != "ParameterDeclaration" &&
+            root.name != "ParameterDeclarationAbstract"))
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Parameter param_d = new Parameter();
 
     // deal with declspecifierseq first
-    foreach (child; root.childs[0].childs[0].childs) {
-        if (child is null)
-            continue;
-        if (child.name == "CvQualifier") {
-            // these things are specific to D only
-            ParameterAttribute attribute = new ParameterAttribute();
-            attribute.idType = tok!"const";
-            param_d.parameterAttributes ~= attribute;
-        }
-        else if (child.name == "TypeKeyword") {
-            param_d.type = convertTypeKeyword(child);
-        }
-        else if (child.name == "NameIdentifier") {
-            param_d.type = new Type();
-            param_d.type.type2 = convertIdentifier(child).toType2();
+    DeclSpecifierSeq declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+    param_d.type = declSpecSeq.getType();
+    param_d.parameterAttributes = declSpecSeq.getParamAttributes();
+
+    // now deal with the declarator
+    // TODO: convert: const char* to string
+    // TODO: doesn't abstract params (=params without a name).
+    // It also ignores the pointer if any
+    if (root.childs[1]) {
+        Declarator decl_d = convertDeclarator(root.childs[1]);
+        if (decl_d) {
+            param_d.name = decl_d.name;
+            param_d.cstyle ~= decl_d.cstyle;
         }
     }
-    // now deal with the declarator
-    // TODO: convert: const char* to string.
-    Declarator decl_d = convertDeclarator(root.childs[1]);
-    param_d.name = decl_d.name;
-    param_d.cstyle ~= decl_d.cstyle;
 
     return param_d;
 
@@ -612,36 +847,37 @@ Parameters convertParametersAndQualifiers(Tree root) {
 FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
 
     if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDefinitionHead")
+        || (root.name != "FunctionDefinitionHead"
+            && root.name != "FunctionDeclarator"))
         throw new Exception("Expected FunctionDefinitionHead");
 
     FunctionDeclaration funcdecl_d = new FunctionDeclaration();
 
     auto funcdecltor_c = root.childs[1];
 
+    DeclSpecifierSeq declSpecSeq;
+    bool isConstructor = false;
+    if (root.childs[0] is null) {
+        isConstructor = true;
+    }
+    else {
+        declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+    }
+
     // get the declarator (i.e. the function name)
     Declarator decltor_d = convertDeclarator(funcdecltor_c.childs[0]);
 
-    // If the type == null it must be a constructor
-    if (auto declSpecSeq = root.childs[0]) {
-        // normal function
-        // showTree(declSpecSeq, 5);
-        foreach (declSpec; declSpecSeq.childs[0].childs) {
-            if (declSpec.name == "CvQualifier") {
-                Attribute attribute = new Attribute();
-                attribute.attribute = Token(tok!"const", "", 0, 0, 0);
-                funcdecl_d.attributes ~= attribute;
-            }
-            else {
-                funcdecl_d.returnType = convertType(declSpec);
-            }
-        }
-        funcdecl_d.name = decltor_d.name;
-    }
-    else {
+    funcdecl_d.returnType = declSpecSeq.getType();
+    funcdecl_d.attributes ~= declSpecSeq.getAttributes();
+    if (isConstructor) {
         // magic incantation to replace the last identifier with "this"
+        // if it is a constructor then the final part of a qualified id must be "this"
         string name = (decltor_d.name.text.split('.')[0 .. $ - 1] ~ "this").join('.');
         funcdecl_d.name = Token(tok!"this", name, 0, 0, 0);
+    }
+    else {
+        // normal function
+        funcdecl_d.name = decltor_d.name;
     }
 
     if (auto params = convertParametersAndQualifiers(funcdecltor_c.childs[1]))
@@ -650,6 +886,30 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
     return funcdecl_d;
 }
 
+// TODO: consider mergin with convertFunctionDefinitionGlobal
+Declaration convertFunctionDefinitionMember(Tree root) {
+    if (root.nodeType != NodeType.nonterminal
+        || root.name != "FunctionDefinitionMember")
+        throw new Exception("Expected FunctionDefinitionMember");
+
+    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(root.childs[0]);
+
+    auto funcbody_c = root.childs[1];
+
+    funcdecl_d.functionBody = new FunctionBody();
+    funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
+
+    BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
+
+    funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
+
+    Declaration decl_d = new Declaration();
+    decl_d.functionDeclaration = funcdecl_d;
+    decl_d.tokens ~= funcdecl_d.tokens;
+    return decl_d;
+}
+
+// TODO: consider merging with convertFunctionDefinitionMember
 Declaration convertFunctionDefinitionGlobal(Tree root) {
     if (root.nodeType != NodeType.nonterminal
         || root.name != "FunctionDefinitionGlobal")
@@ -887,7 +1147,7 @@ NewExpression convertNewExpression(Tree root) {
 
     // handle new initializer, read arguments
     auto initializerClause_c = root.childs[4].childs[1].childs[0];
-    foreach(expr_c ; initializerClause_c.childs) {
+    foreach (expr_c; initializerClause_c.childs) {
         NamedArgument namedArg_d = new NamedArgument();
 
         auto expr_d = convertExpression(expr_c);
@@ -1516,7 +1776,8 @@ BlockStatement convertCompoundStatement(Tree root) {
             writeln("Skipping comment");
             continue;
         }
-        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(child);
+        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(
+            child);
     }
     return blockStmt_d;
 }
