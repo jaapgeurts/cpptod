@@ -3,7 +3,7 @@ OBJ_DIR=obj
 TARGET = cpptod
 PARSER_SRC=grammarcpp.ebnf grammarcpreprocdirect.ebnf
 PARSER_OUT=grammarcpp.d grammarcpp_lexer.d
-D_SOURCES = $(PARSER_OUT) cpptod.d convert.d dsourceprinter.d formatwriter.d
+D_SOURCES = $(PARSER_OUT) cpptod.d convert.d parser.d translate.d dsourceprinter.d formatwriter.d
 # grammarcpreproc_lexer.d grammarcpreproc.d
 D_OBJECTS = $(D_SOURCES:%.d=obj/%.o)
 
