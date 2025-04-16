@@ -11,10 +11,8 @@ import dparsergen.core.dynamictree;
 import dparsergen.core.nodetype;
 
 import dparse.ast;
-import dparse.astprinter;
 import dparse.lexer;
 
-import dsourceprinter;
 
 // for import type Tree
 // defined there as:
@@ -174,26 +172,16 @@ StorageClass[] getStorageClasses(DeclSpecifierSeq decl) {
 // Begin main transpiler functions
 //**************************
 
-void transpileFile(Tree root, File output) {
+Module transpileFile(Tree root) {
 
     writeln(root.start());
     showTree(root, 50);
 
-    ASTNode destinationTree = convertTranslationUnit(root);
+    return convertTranslationUnit(root);
 
-    auto xmlprinter = new XMLPrinter();
-    File newoutput = File("newtree.xml", "w");
-    xmlprinter.output = newoutput;
-    destinationTree.accept(xmlprinter);
-
-    // print the tree. 
-    // TODO: replace with a dfmt printer
-    DSourcePrinter printer = new DSourcePrinter(output);
-    destinationTree.accept(printer);
-    output.close();
 }
 
-ASTNode convertTranslationUnit(Tree tree) {
+Module convertTranslationUnit(Tree tree) {
 
     if (tree.nodeType != NodeType.nonterminal
         || tree.name != "TranslationUnit")
