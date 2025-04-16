@@ -49,16 +49,19 @@ class DSourcePrinter : ASTVisitor {
         attr.accept(this);
 
         if (attr.attribute == tok!"const") {
-            fmt.write("const ");
+            fmt.write("const");
         }
         else if (attr.attribute == tok!"public") {
-            fmt.write("public ");
+            fmt.write("public");
         }
         else if (attr.attribute == tok!"private") {
-            fmt.write("private ");
+            fmt.write("private");
         }
         else if (attr.attribute == tok!"protected") {
-            fmt.write("protected ");
+            fmt.write("protected");
+        }
+        else if (attr.attribute == tok!"override") {
+            fmt.write("override");
         }
     }
 
@@ -70,9 +73,16 @@ class DSourcePrinter : ASTVisitor {
 
     override void visit(const FunctionDeclaration decl) {
 
+        if (decl.attributes) {
+            foreach (attrib; decl.attributes) {
+                this.visit(attrib);
+                fmt.write(" ");
+            }
+        }
+
         if (decl.storageClasses) {
             foreach (sc; decl.storageClasses) {
-                sc.accept(this);
+                this.visit(sc);
                 fmt.write(" ");
             }
         }

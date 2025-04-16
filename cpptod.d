@@ -5,6 +5,7 @@ import dparsergen.core.nodetype;
 import dparsergen.core.utils;
 static import grammarcpp;
 static import grammarcpp_lexer;
+
 // static import grammarcpreproc;
 // static import grammarcpreproc_lexer;
 import std.algorithm;
@@ -20,63 +21,53 @@ import convert;
 /**
 Custom type, which stores the filename in addition to the position in the file.
 */
-struct Location
-{
+struct Location {
     LocationAll loc;
     string filename;
     alias LocationDiff = LocationAll.LocationDiff;
 
-    this(LocationAll loc, string filename = "")
-    {
+    this(LocationAll loc, string filename = "") {
         this.loc = loc;
         this.filename = filename;
     }
 
-    auto bytePos() const
-    {
+    auto bytePos() const {
         return loc.bytePos;
     }
 
-    auto line() const
-    {
+    auto line() const {
         return loc.line;
     }
 
-    auto offset() const
-    {
+    auto offset() const {
         return loc.offset;
     }
 
     enum invalid = Location(LocationAll.invalid);
 
-    bool isValid() const
-    {
+    bool isValid() const {
         return loc.isValid;
     }
 
-    LocationDiff opBinary(string op)(const Location rhs) const if (op == "-")
-    {
+    LocationDiff opBinary(string op)(const Location rhs) const if (op == "-") {
         if (rhs.filename == filename)
             return loc - rhs.loc;
         else
             return LocationDiff.invalid;
     }
 
-    Location opBinary(string op)(const LocationDiff rhs) const if (op == "+")
-    {
+    Location opBinary(string op)(const LocationDiff rhs) const if (op == "+") {
         if (this == invalid || rhs == LocationDiff.invalid)
             return invalid;
         else
             return Location(loc + rhs, filename);
     }
 
-    void opOpAssign(string op)(const LocationDiff rhs) if (op == "+")
-    {
+    void opOpAssign(string op)(const LocationDiff rhs) if (op == "+") {
         loc += rhs;
     }
 
-    int opCmp(const Location rhs) const
-    {
+    int opCmp(const Location rhs) const {
         if (filename < rhs.filename)
             return -1;
         if (filename > rhs.filename)
@@ -84,8 +75,7 @@ struct Location
         return loc.opCmp(rhs.loc);
     }
 
-    string toPrettyString() const
-    {
+    string toPrettyString() const {
         return text(filename, ":", line + 1, ":", offset + 1);
     }
 }
@@ -93,62 +83,55 @@ struct Location
 alias Tree = DynamicParseTree!(Location, LocationRangeStartLength);
 alias CreatorCpp = DynamicParseTreeCreator!(grammarcpp, Location, LocationRangeStartLength);
 
-int main(string[] args)
-{
+int main(string[] args) {
     string filename;
     bool verbose;
-    foreach (arg; args[1 .. $])
-    {
-        if (arg.startsWith("-"))
-        {
+    foreach (arg; args[1 .. $]) {
+        if (arg.startsWith("-")) {
             if (arg == "-v")
                 verbose = true;
-            else if (arg == "-h")
-            {
+            else if (arg == "-h") {
                 filename = "";
                 break;
             }
-            else
-            {
+            else {
                 stderr.writeln("Unknown option ", arg);
             }
         }
-        else
-        {
-            if (filename.length)
-            {
+        else {
+            if (filename.length) {
                 stderr.writeln("Too many arguments");
                 return 1;
             }
             filename = arg;
         }
     }
-    if (filename.length == 0)
-    {
+    if (filename.length == 0) {
         stderr.writeln("Usage: testcpp [OPTIONS] filename.cpp");
         stderr.writeln("    -v Verbose output");
         stderr.writeln("    -h Show this help");
         return 0;
     }
 
+    // TODO: use readText instead?
     string inText = cast(string) read(filename);
-
+    // TODO: replace macros with user entered values
+    inText = inText
+        .replace("FL_EXPORT", "")
+        .replace("FL_OVERRIDE", "override");
 
     // Parse C++ code
     Tree tree;
-    try
-    {
+    try {
         auto creator = new CreatorCpp;
-
 
         tree = grammarcpp.parse!(CreatorCpp,
             grammarcpp_lexer.Lexer!Location)(inText,
-                creator, Location(LocationAll.init, filename)
-            );
+            creator, Location(LocationAll.init, filename)
+        );
         assert(tree.inputLength.bytePos <= inText.length);
     }
-    catch (Exception e)
-    {
+    catch (Exception e) {
         stderr.writeln(e);
         return 1;
     }
@@ -160,10 +143,7 @@ int main(string[] args)
     string outFilename = stripExtension(filename) ~ ".d";
     File output = File(outFilename, "w");
 
-
-    transpileFile(tree,output);
+    transpileFile(tree, output);
 
     return 0;
 }
-
-

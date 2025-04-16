@@ -285,13 +285,26 @@ Declaration convertDirective(Tree root) {
         if (child.childs.length > 3 && child.childs[3]!is null && child.childs[3].name == "PP_DefineValue") {
             // simple variable define
 
-            // The storage class enum
-            StorageClass storageClass = new StorageClass();
-            storageClass.token = Token(tok!"enum", "enum", 0, 0, 0);
+            writeln("HERE1:");
+            showTree(child, 15);
 
             // The initializer
-            PrimaryExpression primaryExpression = new PrimaryExpression();
-            primaryExpression.primary = Token(tok!"int", child.childs[3].childs[0].content, 0, 0, 0);
+            PrimaryExpression primaryExpression;
+
+            auto node = child.childs[3].childs[0];
+            if (node.name == "PrimaryExpression") {
+                UnaryExpression expr = cast(UnaryExpression) convertPrimaryExpression(node);
+                // take the primary expression out of the unary expression
+                primaryExpression = expr.primaryExpression;
+            }
+            else {
+                // assume its literal definition
+                // The storage class enum
+                primaryExpression = new PrimaryExpression();
+                // If it's a literal
+                primaryExpression.primary = Token(tok!"int", child.childs[3].childs[0].childs[0].content, 0, 0, 0);
+
+            }
             UnaryExpression unaryExpr = new UnaryExpression();
             unaryExpr.primaryExpression = primaryExpression;
             NonVoidInitializer nonVoidInit = new NonVoidInitializer();
@@ -303,6 +316,9 @@ Declaration convertDirective(Tree root) {
             part.initializer = init;
             part.identifier = child.childs[2].content.toIdentifierToken();
 
+            StorageClass storageClass = new StorageClass();
+            storageClass.token = Token(tok!"enum", "enum", 0, 0, 0);
+
             AutoDeclaration autoDecl = new AutoDeclaration();
             autoDecl.storageClasses ~= storageClass;
             autoDecl.parts ~= part;
@@ -311,7 +327,6 @@ Declaration convertDirective(Tree root) {
             varDecl.autoDeclaration = autoDecl;
             Declaration decl = new Declaration();
             decl.variableDeclaration = varDecl;
-
             return decl;
         }
         else {
@@ -699,11 +714,14 @@ Declaration convertSimpleDeclaration3(Tree root) {
                 auto accessSpec = decl.childs[0].childs[0].content;
                 if (accessSpec == "public") {
                     attribute.attribute = Token(tok!"public", "public", 0, 0, 0);
-                } else if (accessSpec == "private") {
+                }
+                else if (accessSpec == "private") {
                     attribute.attribute = Token(tok!"private", "private", 0, 0, 0);
-                } else if (accessSpec == "protected") {
+                }
+                else if (accessSpec == "protected") {
                     attribute.attribute = Token(tok!"protected", "protected", 0, 0, 0);
-                } else {
+                }
+                else {
                     writeln("Unknown access specifier: ", accessSpec);
                 }
                 accessDecl_d.attribute = attribute;
@@ -765,6 +783,17 @@ Declaration convertMemberDeclaration1(Tree root) {
 
         // now add the parameters
         funcDecl_d.parameters = convertParametersAndQualifiers(declTor_c.childs[1]);
+
+        // check for final const / override 
+        if (declTor_c.childs[2].childs.length>0) {
+            if (declTor_c.childs[2].childs[0].name == "VirtSpecifier") {
+                if (declTor_c.childs[2].childs[0].childs[0].content == "override") {
+                    Attribute attribute = new Attribute();
+                    attribute.attribute = Token(tok!"override", "override", 0, 0, 0);
+                    funcDecl_d.attributes ~= attribute;
+                }
+            }
+        }
 
         decl_d.functionDeclaration = funcDecl_d;
     }

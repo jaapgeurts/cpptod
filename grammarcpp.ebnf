@@ -503,9 +503,11 @@ fragment PP_HChar
 PP_DefineName @string = Identifier !"(";
 
 PP_DefineValue
-    = StringLiteral
-    | IntegerLiteral
-    | FloatLiteral
+    = PrimaryExpression
+    // = StringLiteral
+    // | IntegerLiteral
+    // | FloatLiteral
+    // | PrimaryExpression
     ;
 
 
