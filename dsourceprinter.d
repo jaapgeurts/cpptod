@@ -461,6 +461,12 @@ class DSourcePrinter : ASTVisitor {
         }
     }
 
+    override void visit(const StructDeclaration decl) {
+        fmt.write("struct ");
+        this.visit(decl.name);
+        decl.accept(this);
+    }
+
     override void visit(const ClassDeclaration decl) {
         fmt.write("class ");
         this.visit(decl.name);

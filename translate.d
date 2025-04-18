@@ -384,6 +384,9 @@ DeclSpecifierSeq convertDeclSpecifierSequence(Tree root) {
             // these things are specific to D only
             decl.qualifiers ~= child.childs[0].content;
         }
+        else if (child.name == "FunctionSpecifier") {
+            decl.qualifiers ~= child.childs[0].content;
+        }
     }
     // If there were multiple types, then we need to join them.
     // E.g. "unsigned int" or "unsigned long long"
@@ -517,7 +520,14 @@ Declarator convertPtrDeclarator(Tree root) {
 
     Declarator declarator_d = new Declarator();
     TypeSuffix ts = new TypeSuffix();
-    ts.star = Token(tok!"*", "", 0, 0, 0);
+    if (root.childs[0].childs[0].content == "*") {
+        ts.star = Token(tok!"*", "", 0, 0, 0);
+    }
+    else if (root.childs[0].childs[0].content == "&") {
+        // TODO: this is not a pointer, but a reference
+        // we need to convert it to a ref
+        writeln("Reference not implemented");
+    }
     declarator_d.cstyle ~= ts;
     Declarator decltor_d = convertDeclarator(root.childs[1]);
     foreach (d; decltor_d.cstyle) {
@@ -612,11 +622,17 @@ Declarator convertDeclarator(Tree root) {
         sfx.low = convertExpression(root.childs[2]);
         declarator_d.cstyle ~= sfx;
     }
+    // else if (root.name == "FunctionDeclarator") {
+    //     // Declaration decl_d = new Declaration();
+    //     // decl_d.functionDeclaration = new FunctionDeclaration();
+
+    //     // declarator_d = convertFunctionDeclarator(root);
+    // }
     else {
         writeln(": Non-terminal or unexpected terminal: " ~ root.name);
-        writeln("HERE1:");
-        showTree(root);
-        writeln(root.start());
+        // writeln("HERE1:");
+        // showTree(root);
+        // writeln(root.start());
     }
 
     return declarator_d;
@@ -809,9 +825,25 @@ Declaration convertMemberDeclaration1(Tree root) {
         declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
     }
 
+    Type type_d = declSpecSeq.getType();
     auto declTor_c = root.childs[1].childs[0];
 
     decl_d.attributes ~= declSpecSeq.getAttributes();
+
+    if (declTor_c.name == "PtrDeclarator") {
+        if (declTor_c.childs[0].childs[0].content == "*") {
+            TypeSuffix ts = new TypeSuffix();
+            ts.star = Token(tok!"*", "", 0, 0, 0);
+            type_d.typeSuffixes ~= ts;
+        }
+        else if (declTor_c.childs[0].childs[0].content == "&") {
+            Attribute attribute = new Attribute();
+            attribute.attribute = Token(tok!"ref", "ref", 0, 0, 0);
+            decl_d.attributes ~= attribute;
+        }
+        // The declarator is the child of the ptr declarator
+        declTor_c = declTor_c.childs[1];
+    }
 
     if (declTor_c.name == "FunctionDeclarator") {
         // This is a function signature only.
@@ -824,7 +856,7 @@ Declaration convertMemberDeclaration1(Tree root) {
             // normal function
             Declarator declTor_d = convertNoptrDeclarator(declTor_c.childs[0]);
             funcDecl_d.name = declTor_d.name;
-            funcDecl_d.returnType = declSpecSeq.getType();
+            funcDecl_d.returnType = type_d;
         }
         funcDecl_d.storageClasses = declSpecSeq.getStorageClasses();
 
@@ -850,7 +882,7 @@ Declaration convertMemberDeclaration1(Tree root) {
 
         VariableDeclaration varDecl_d = new VariableDeclaration();
         // varDecl_d.declarators ~= decltor_d;
-        varDecl_d.type = declSpecSeq.getType();
+        varDecl_d.type = type_d;
         varDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
 
         // walk through all the declarators
@@ -992,15 +1024,26 @@ Declaration convertFunctionDefinitionMember(Tree root) {
     FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(
         root.childs[0]);
 
-    auto funcbody_c = root.childs[1];
+    if (root.childs[1].nodeType == NodeType.token &&
+        root.childs[1].content == "=" &&
+        root.childs[2].content == "0") {
+        // this is a pure virtual function → abstract in D
+        Attribute attrib = new Attribute();
+        attrib.attribute = Token(tok!"abstract", "abstract", 0, 0, 0);
+        funcdecl_d.attributes ~= attrib;
+    }
+    else {
 
-    funcdecl_d.functionBody = new FunctionBody();
-    funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
+        auto funcbody_c = root.childs[1];
+        funcdecl_d.functionBody = new FunctionBody();
+        funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
 
-    BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
+        writeln("HERE1:");
+        showTree(root);
+        BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
 
-    funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
-
+        funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
+    }
     Declaration decl_d = new Declaration();
     decl_d.functionDeclaration = funcdecl_d;
     decl_d.tokens ~= funcdecl_d.tokens;
@@ -1449,7 +1492,14 @@ ExpressionNode convertExpression(Tree root) {
         result = convertAssignmentExpression(root);
         break;
     case "UnaryExpression":
-        result = convertUnaryExpression(root);
+        if (root.nodeType == NodeType.merged) {
+            auto node = root.childs[1];
+            writeln("UnaryExpression: is ambiguous, choosing alternative: ", node.name);
+            result = convertExpression(node);
+        }
+        else {
+            result = convertUnaryExpression(root);
+        }
         break;
     case "RelationalExpression":
         result = convertRelationalExpression(root);
@@ -1485,6 +1535,10 @@ ExpressionNode convertExpression(Tree root) {
         result = convertDeleteExpression(root);
         break;
     case "CastExpression":
+        if (root.nodeType == NodeType.merged) {
+            root = root.childs[1];
+            writefln("CastExpression: is ambiguous, choosing alternative: ", root.name);
+        }
         result = convertCastExpression(root);
         break;
     default:
