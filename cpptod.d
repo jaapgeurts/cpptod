@@ -29,9 +29,9 @@ int main(string[] args) {
             std.getopt.config.passThrough,
             "merge|m", "Merges a headerfile and source. Useful when merging a class definition and source file. Left over declarations are placed in the output file. The outfile filename is inferred from the header file name unless explicitly supplied. You must specify exactly two input files for this to work."
                 .wrap(80, "\t", "\t\t"), &isMerge,
-            "output|o", "Output file name. If not specified, the output file name is inferred from the input file name."
+                "output|o", "Output file name. If not specified, the output file name is inferred from the input file name."
                 .wrap(80, "\t", "\t\t"), &outputFilename,
-            "format|f", "Format the output file using dfmt."
+                "format|f", "Format the output file using dfmt."
                 .wrap(80, "\t", "\t\t"), &isFormat,
         );
         if (argumentInfo.helpWanted) {
@@ -53,7 +53,7 @@ int main(string[] args) {
             return 2;
         }
         // test which file is the header file
-        if (args[1][$-1].toLower == 'h') {
+        if (args[1][$ - 1].toLower == 'h') {
             inputFilenameH = args[1];
             inputFilenameC = args[2];
         }
@@ -81,11 +81,13 @@ int main(string[] args) {
         return 5;
     }
 
-    if (isMerge) {
-        outputFilename = stripExtension(inputFilenameH) ~ ".d";
-    }
-    else {
-        outputFilename = stripExtension(inputFilenameC) ~ ".d";
+    if (outputFilename.length == 0) {
+        if (isMerge) {
+            outputFilename = stripExtension(inputFilenameH) ~ ".d";
+        }
+        else {
+            outputFilename = stripExtension(inputFilenameC) ~ ".d";
+        }
     }
 
     writeln("Processing Source:", inputFilenameC, " and Header:", inputFilenameH, " to ", outputFilename);
@@ -123,18 +125,16 @@ void startConversion(string filenameC, string filenameH, string outFilename) {
         Module moduleH;
         if (isMerge) {
             moduleH = transpileFile(treeH);
-            
+
             // merge the two trees
             moduleC = mergeTrees(moduleC, moduleH);
         }
-
 
         // printTree(stdout, preprocTree, verbose);
         // printTree(stdout, tree, verbose);
 
         // convert input filename to output filename
         File output = File(outFilename, "w");
-
 
         auto xmlprinter = new XMLPrinter();
         File newoutput = File("newtree.xml", "w");

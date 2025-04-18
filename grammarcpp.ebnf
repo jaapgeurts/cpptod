@@ -747,7 +747,7 @@ ElaboratedTypeSpecifier
 //    ;
 EnumSpecifier
     = EnumHead "{" EnumeratorList? "}"
-    | EnumHead "{" EnumeratorList "," "}"
+    | EnumHead "{" EnumeratorList "," LineComment* "}"
     ;
 EnumHead
     = EnumKey AttributeSpecifierSeq EnumBase?
@@ -767,10 +767,10 @@ EnumBase
     ;
 EnumeratorList @array
     = Enumerator
-    | EnumeratorList "," Enumerator
+    | EnumeratorList "," LineComment* Enumerator
     ;
 Enumerator
-    = Identifier EnumeratorInitializer?
+    = Identifier EnumeratorInitializer? LineComment?
     ;
 EnumeratorInitializer
     = "=" ConstantExpression

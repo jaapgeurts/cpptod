@@ -1,10 +1,9 @@
 # Variables
 OBJ_DIR=obj
 TARGET = cpptod
-PARSER_SRC=grammarcpp.ebnf grammarcpreprocdirect.ebnf
-PARSER_OUT=grammarcpp.d grammarcpp_lexer.d
+PARSER_SRC=grammarcpp.ebnf # grammarcpreprocdirect.ebnf
+PARSER_OUT=grammarcpp.d grammarcpp_lexer.d # grammarcpreproc_lexer.d grammarcpreproc.d
 D_SOURCES = $(PARSER_OUT) cpptod.d parser.d translate.d postprocess.d dsourceprinter.d formatwriter.d
-# grammarcpreproc_lexer.d grammarcpreproc.d
 D_OBJECTS = $(D_SOURCES:%.d=obj/%.o)
 
 # Compiler and flags
@@ -38,7 +37,10 @@ $(OBJ_DIR)/dsourceprinter.o: dsourceprinter.d formatwriter.d
 	mkdir -p $(OBJ_DIR)
 	$(DC) $(DFLAGS) -c -of=$@ $<
 
-$(OBJ_DIR)/cpptod.o: cpptod.d $(PARSER_OUT)
+# if the grammar has changed and the parser is not recompiled,
+# the parser will not use the new grammar, since the grammar is templated code
+# generated at compile time
+$(OBJ_DIR)/parser.o: parser.d $(PARSER_OUT)
 	mkdir -p $(OBJ_DIR)
 	$(DC) $(DFLAGS) -c -of=$@ $<
 

@@ -13,7 +13,6 @@ import dparsergen.core.nodetype;
 import dparse.ast;
 import dparse.lexer;
 
-
 // for import type Tree
 // defined there as:
 //  alias Tree = DynamicParseTree!(Location, LocationRangeStartLength);
@@ -44,7 +43,7 @@ IdType[string] typeConversionMap = [
 // Tree printing functions
 //********************************
 
-void showTree(Tree root, int depth = 10, string prefix = "",) {
+void showTree(Tree root, int depth = 15, string prefix = "",) {
 
     showTreeRec(root, 0, depth, prefix);
 
@@ -278,9 +277,6 @@ Declaration convertDirective(Tree root) {
     case "PP_Define":
         if (child.childs.length > 3 && child.childs[3]!is null && child.childs[3].name == "PP_DefineValue") {
             // simple variable define
-
-            writeln("HERE1:");
-            showTree(child, 15);
 
             // The initializer
             PrimaryExpression primaryExpression;
@@ -609,8 +605,18 @@ Declarator convertDeclarator(Tree root) {
         declarator_d.cstyle ~= new TypeSuffix();
         declarator_d.cstyle[0].star = Token(tok!"*", "", 0, 0, 0);
     }
+    else if (root.name == "ArrayDeclarator") {
+        declarator_d = convertDeclarator(root.childs[0]);
+        TypeSuffix sfx = new TypeSuffix();
+        sfx.array = true;
+        sfx.low = convertExpression(root.childs[2]);
+        declarator_d.cstyle ~= sfx;
+    }
     else {
-        writeln(__LINE__, ": Non-terminal or unexpected terminal: " ~ root.name);
+        writeln(": Non-terminal or unexpected terminal: " ~ root.name);
+        writeln("HERE1:");
+        showTree(root);
+        writeln(root.start());
     }
 
     return declarator_d;
@@ -687,16 +693,31 @@ Declaration convertSimpleDeclaration3(Tree root) {
     // first focus on the class declarator
     auto declSpecSeq = root.childs[0].childs[0];
     int index = 0;
+    ClassDeclaration classDecl_d;
+    StructDeclaration structDecl_d;
 
     if (declSpecSeq.childs[0].name == "ClassSpecifier") {
         // this is class
-        ClassDeclaration classDecl_d = new ClassDeclaration();
+        auto classHead_c = declSpecSeq.childs[0].childs[0];
+
+        enum RecordType {
+            Struct,
+            Class
+        }
+
+        RecordType recordType;
 
         // process the class head
-        auto classHead_c = declSpecSeq.childs[0].childs[0];
+        Token recordName;
         foreach (child; classHead_c.childs) {
-            if (child.name == "ClassHeadName") {
-                classDecl_d.name = convertIdentifier(child.childs[1]).toIdentifierToken();
+            if (child is null)
+                continue;
+            if (child.name == "ClassKey") {
+                recordType = child.childs[0].content == "struct"
+                    ? RecordType.Struct : RecordType.Class;
+            }
+            else if (child.name == "ClassHeadName") {
+                recordName = convertIdentifier(child.childs[1]).toIdentifierToken();
             }
             else if (child.name == "BaseClause") {
                 BaseClass baseClass_d = new BaseClass();
@@ -708,7 +729,7 @@ Declaration convertSimpleDeclaration3(Tree root) {
             }
         }
 
-        // process the class body
+        // process the class/struct body
         StructBody structBody_d = new StructBody();
         auto classBody_c = declSpecSeq.childs[0].childs[1];
         foreach (decl; classBody_c.childs[1].childs) {
@@ -749,7 +770,18 @@ Declaration convertSimpleDeclaration3(Tree root) {
             }
 
         }
-        classDecl_d.structBody = structBody_d;
+
+        // determine if this is a class or struct
+        if (recordType == RecordType.Struct) {
+            structDecl_d = new StructDeclaration();
+            structDecl_d.name = recordName;
+            structDecl_d.structBody = structBody_d;
+        }
+        else if (recordType == RecordType.Class) {
+            classDecl_d = new ClassDeclaration();
+            classDecl_d.name = recordName;
+            classDecl_d.structBody = structBody_d;
+        }
         decl_d.classDeclaration = classDecl_d;
     }
     else {
@@ -911,8 +943,6 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
         || root.name != "FunctionDefinitionHead")
         throw new Exception("Expected FunctionDefinitionHead");
 
-    auto funcdecltor_c = root.childs[1];
-
     DeclSpecifierSeq declSpecSeq;
     bool isConstructor = false;
     if (root.childs[0] is null) {
@@ -922,9 +952,26 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
         declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
     }
 
-    // get the declarator (i.e. the function name)
-    FunctionDeclaration funcdecl_d = convertFunctionDeclarator(funcdecltor_c);
-    funcdecl_d.returnType = declSpecSeq.getType();
+    Type type_d = declSpecSeq.getType();
+
+    auto funcDeclOrPtr = root.childs[1];
+    // check if the function has a pointer attached to the return type
+    FunctionDeclaration funcdecl_d;
+    if (funcDeclOrPtr.name == "FunctionDeclarator") {
+        // get the declarator (i.e. the function name)
+        funcdecl_d = convertFunctionDeclarator(funcDeclOrPtr);
+    }
+    else if (funcDeclOrPtr.name == "PtrDeclarator") {
+        // For now assume only one level of indirection
+        TypeSuffix ts = new TypeSuffix();
+        ts.star = Token(tok!"*", "", 0, 0, 0);
+        type_d.typeSuffixes ~= ts;
+        funcdecl_d = convertFunctionDeclarator(funcDeclOrPtr.childs[1]);
+    }
+    else {
+        writeln("Unknown function declarator: ", funcDeclOrPtr.name);
+    }
+    funcdecl_d.returnType = type_d;
     funcdecl_d.attributes ~= declSpecSeq.getAttributes();
     if (isConstructor) {
         // magic incantation to replace the last identifier with "this"
@@ -1296,6 +1343,9 @@ ExpressionNode convertPostfixExpression(Tree root) {
             unaryExpr_d.suffix = Token(tok!"++", "", 0, 0, 0);
             result = unaryExpr_d;
         }
+        else if (operator == "[") {
+            writeln("Array subscript not implemented");
+        }
         else {
             writeln("Unknown postfix token: ", operator);
 
@@ -1562,13 +1612,17 @@ Statement convertIterationStatement(Tree root) {
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     ForStatement forStmt_d = new ForStatement();
-    forStmt_d.initialization = convertStatement(root.childs[2])[0];
-    Expression expr = new Expression();
-    expr.items ~= convertExpression(root.childs[3]);
-    forStmt_d.test = expr;
+    if (root.childs[2].name != "EmptyStatement") {
+        forStmt_d.initialization = convertStatement(root.childs[2])[0];
+    }
+    if (root.childs[3]!is null) {
+        Expression expr = new Expression();
+        expr.items ~= convertExpression(root.childs[3]);
+        forStmt_d.test = expr;
+    }
     // Increment can be null
     if (root.childs[5]) {
-        expr = new Expression();
+        Expression expr = new Expression();
         expr.items ~= convertExpression(root.childs[5]);
         forStmt_d.increment = expr;
     }
@@ -1726,25 +1780,31 @@ DeclarationOrStatement[] convertStatement(Tree root) {
     if (root.nodeType == NodeType.token)
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
-    if (root.name == "Statement") {
+    // go through the children
+    DeclarationOrStatement[] declsOrStmts_d;
+
+    switch (root.name) {
+    case "Statement":
         // If a statement is ambiguous then 
         // The statement will be merged and contain each alternative
         // interpretation
         if (root.nodeType == NodeType.merged) {
             // substatement such as expressionstatement
-            root = root.childs[1].childs[1];
-            writeln("Statement: Ambiguous parse detected. Choosing alternative: ", root.name);
+            writeln("Statement: is ambiguous. Choosing alternative: ", root.childs[1].name);
+            declsOrStmts_d ~= convertStatement(root.childs[1]);
+        }
+        else if (root.childs[0].name == "PP_Directive") {
+            Declaration decl_d = convertDirective(root.childs[0]);
+            DeclarationOrStatement declOrStmt_d = new DeclarationOrStatement();
+            declOrStmt_d.declaration = decl_d;
+            declsOrStmts_d ~= declOrStmt_d;
+            return declsOrStmts_d;
         }
         else {
-            // Skip the first node which is an array
-            root = root.childs[1];
+            // skip the first token which an array
+            declsOrStmts_d ~= convertStatement(root.childs[1]);
         }
-    }
-
-    // go through the children
-    DeclarationOrStatement[] declsOrStmts_d;
-
-    switch (root.name) {
+        break;
     case "SimpleDeclaration1":
         Declaration[] decls_d = convertSimpleDeclaration1(root);
         foreach (decl; decls_d) {
@@ -1802,10 +1862,18 @@ DeclarationOrStatement[] convertStatement(Tree root) {
         declOrStmt_d.statement = convertLabelStatement(root);
         declsOrStmts_d ~= declOrStmt_d;
         break;
+    case "ForInitStatement":
+        if (root.nodeType == NodeType.merged) {
+            writeln("ForInitStatement: is ambiguous, choosing alternative: ", root.childs[0].name);
+        }
+        declsOrStmts_d ~= convertStatement(root.childs[0]);
+        break;
     default:
+
         writeln("SingleStmt: Unknown statement type: ", root.name);
-        // showTree(root, 5);
-        // throw new Exception("Unknown statement type: " ~ root.name);
+        showTree(root);
+        writeln("At line: ", root.start());
+        throw new Exception("Unknown statement type: " ~ root.name);
         break;
     }
 
