@@ -539,8 +539,9 @@ Declarator convertPtrDeclarator(Tree root) {
         declarator_d.cstyle ~= ts;
     }
     else if (root.childs[0].childs[0].content == "&") {
-        // TODO: this is not a pointer, but a reference
-        // we need to convert it to a ref
+        // this is not a pointer, but a reference
+        // store it as a ref now. In a higher node
+        // we pull this out and convert it to a ref attribute
         TypeSuffix ts = new TypeSuffix();
         ts.star = Token(tok!"ref", "", 0, 0, 0);
         declarator_d.cstyle ~= ts;
@@ -804,6 +805,9 @@ Declaration convertSimpleDeclaration3(Tree root) {
             if (decl.name == "MemberDeclaration1") {
                 structBody_d.declarations ~= convertMemberDeclaration1(decl);
             }
+            else if (decl.name == "MemberDeclaration2") {
+                // structBody_d.declarations ~= convertMemberDeclaration2(decl);
+            }
             else if (decl.name == "FunctionDefinitionMember") {
                 // This is a complete member function definition
                 // Function signature + body.
@@ -890,41 +894,14 @@ Declaration convertMemberDeclaration1(Tree root) {
         declTor_c = declTor_c.childs[1];
     }
 
-    // TODO: should I call convertFunctionDeclarator instead?
     if (declTor_c.name == "FunctionDeclarator") {
-        // This is a function signature only.
-        FunctionDeclaration funcDecl_d = new FunctionDeclaration();
+
+        FunctionDeclaration funcDecl_d = convertFunctionDeclarator(declTor_c);
+        funcDecl_d.storageClasses = declSpecSeq.getStorageClasses();
+
         if (isConstructor) {
             // constructor
             funcDecl_d.name = Token(tok!"this", "this", 0, 0, 0);
-        }
-        else {
-            // normal function
-            Declarator declTor_d = convertNoptrDeclarator(declTor_c.childs[0]);
-            funcDecl_d.name = declTor_d.name;
-            funcDecl_d.returnType = type_d;
-        }
-        funcDecl_d.storageClasses = declSpecSeq.getStorageClasses();
-
-        // now add the parameters
-        funcDecl_d.parameters = convertParametersAndQualifiers(declTor_c.childs[1]);
-
-        // check for final const / override 
-        if (declTor_c.childs[2].childs.length > 0) {
-            if (declTor_c.childs[2].childs[0].name == "VirtSpecifier") {
-                if (declTor_c.childs[2].childs[0].childs[0].content == "override") {
-                    Attribute attribute = new Attribute();
-                    attribute.attribute = Token(tok!"override", "override", 0, 0, 0);
-                    funcDecl_d.attributes ~= attribute;
-                }
-            }
-        }
-        if (declTor_c.childs[1].childs[3].childs.length > 0) {
-            if (declTor_c.childs[1].childs[3].childs[0].name == "CvQualifier") {
-                MemberFunctionAttribute attr = new MemberFunctionAttribute();
-                attr.tokenType = tok!"const";
-                funcDecl_d.memberFunctionAttributes ~= attr;
-            }
         }
 
         decl_d.functionDeclaration = funcDecl_d;
@@ -1023,6 +1000,20 @@ FunctionDeclaration convertFunctionDeclarator(Tree root) {
     Declarator decltor_d = convertDeclarator(root.childs[0]);
     funcdecl_d.name = decltor_d.name;
 
+    // now add the parameters
+    funcdecl_d.parameters = convertParametersAndQualifiers(root.childs[1]);
+
+    // check for final const / override 
+    if (root.childs[2].childs.length > 0) {
+        if (root.childs[2].childs[0].name == "VirtSpecifier") {
+            if (root.childs[2].childs[0].childs[0].content == "override") {
+                Attribute attribute = new Attribute();
+                attribute.attribute = Token(tok!"override", "override", 0, 0, 0);
+                funcdecl_d.attributes ~= attribute;
+            }
+        }
+    }
+
     if (root.childs[1].childs[3].childs.length > 0) {
         // this function has attributes
         if (root.childs[1].childs[3].childs[0].name == "CvQualifier") {
@@ -1031,9 +1022,6 @@ FunctionDeclaration convertFunctionDeclarator(Tree root) {
             funcdecl_d.memberFunctionAttributes ~= attr;
         }
     }
-
-    // now add the parameters
-    funcdecl_d.parameters = convertParametersAndQualifiers(root.childs[1]);
 
     return funcdecl_d;
 }
@@ -1439,7 +1427,8 @@ ExpressionNode convertPostfixExpression(Tree root) {
             // postfix decrement
             UnaryExpression unaryExpr_d = new UnaryExpression();
             unaryExpr_d.unaryExpression = new UnaryExpression();
-            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(
+                root.childs[0])
                 .toIdentifierOrTemplateInstance();
             // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"--", "", 0, 0, 0);
@@ -1449,7 +1438,8 @@ ExpressionNode convertPostfixExpression(Tree root) {
             // postfix increment
             UnaryExpression unaryExpr_d = new UnaryExpression();
             unaryExpr_d.unaryExpression = new UnaryExpression();
-            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(
+                root.childs[0])
                 .toIdentifierOrTemplateInstance();
             // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"++", "", 0, 0, 0);
