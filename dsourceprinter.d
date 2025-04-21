@@ -42,14 +42,13 @@ class DSourcePrinter : ASTVisitor {
         fmt.writeln();
     }
 
-
     // TODO: consider whether const in C means immutable or const in D
     override void visit(const Attribute attr) {
 
         attr.accept(this);
 
         if (attr.attribute == tok!"const") {
-            fmt.write("const");
+            fmt.write("const ");
         }
         else if (attr.attribute == tok!"public") {
             fmt.write("public");
@@ -69,22 +68,17 @@ class DSourcePrinter : ASTVisitor {
         decl.accept(this);
         fmt.writeln(":");
     }
-        
 
     override void visit(const FunctionDeclaration decl) {
 
-        if (decl.attributes) {
-            foreach (attrib; decl.attributes) {
-                this.visit(attrib);
-                fmt.write(" ");
-            }
+        foreach (attrib; decl.attributes) {
+            this.visit(attrib);
+            fmt.write(" ");
         }
 
-        if (decl.storageClasses) {
-            foreach (sc; decl.storageClasses) {
-                this.visit(sc);
-                fmt.write(" ");
-            }
+        foreach (sc; decl.storageClasses) {
+            this.visit(sc);
+            fmt.write(" ");
         }
 
         if (decl.returnType !is null) {
@@ -97,10 +91,18 @@ class DSourcePrinter : ASTVisitor {
             this.visit(decl.parameters);
         }
         fmt.write(")");
+
+        foreach (attr; decl.memberFunctionAttributes) {
+            if (attr.tokenType == tok!"const") {
+                fmt.write(" const");
+            }
+        }
+
         if (decl.functionBody) {
             fmt.write(' ');
             decl.functionBody.accept(this);
-        } else {
+        }
+        else {
             fmt.write(";");
         }
         fmt.writeln();
@@ -410,6 +412,42 @@ class DSourcePrinter : ASTVisitor {
 
     }
 
+    override void visit(const AliasDeclaration decl) {
+        fmt.write("alias ");
+        decl.accept(this);
+        fmt.writeln(";");
+
+    }
+
+    override void visit(const AliasInitializer init) {
+        this.visit(init.name);
+        fmt.write(" = ");
+        foreach (sc; init.storageClasses) {
+            sc.accept(this);
+            fmt.write(" ");
+        }
+        if (init.type) {
+            this.visit(init.type);
+        }
+        fmt.write(" ");
+
+        if (init.functionLiteralExpression) {
+            this.visit(init.functionLiteralExpression);
+        }
+
+    }
+
+    override void visit(const FunctionLiteralExpression expr) {
+        if (expr.returnType) {
+            this.visit(expr.returnType);
+        }
+        fmt.write(" function");
+        if (expr.parameters) {
+            fmt.write("(");
+            this.visit(expr.parameters);
+            fmt.write(")");
+        }
+    }
 
     override void visit(const VariableDeclaration decl) {
         // fmt.write();
@@ -453,7 +491,7 @@ class DSourcePrinter : ASTVisitor {
     override void visit(const BaseClassList list) {
         fmt.write(" : ");
 
-        foreach(i,bclass; list.items) {
+        foreach (i, bclass; list.items) {
             bclass.accept(this);
             if (i != list.items.length - 1) {
                 fmt.write(", ");
@@ -483,7 +521,7 @@ class DSourcePrinter : ASTVisitor {
 
     override void visit(const AssignExpression expr) {
         auto expr2 = (cast(Expression) expr.expression);
-        if (expr2 is null){
+        if (expr2 is null) {
             stderr.writeln("Assign expression: expr2 is null");
             return;
         }

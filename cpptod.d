@@ -29,7 +29,7 @@ int main(string[] args) {
             std.getopt.config.passThrough,
             "merge|m", "Merges a headerfile and source. Useful when merging a class definition and source file. Left over declarations are placed in the output file. The outfile filename is inferred from the header file name unless explicitly supplied. You must specify exactly two input files for this to work."
                 .wrap(80, "\t", "\t\t"), &isMerge,
-                "output|o", "Output file name. If not specified, the output file name is inferred from the input file name."
+                "output|o", "Output file name. If not specified, the output is stdout."
                 .wrap(80, "\t", "\t\t"), &outputFilename,
                 "format|f", "Format the output file using dfmt."
                 .wrap(80, "\t", "\t\t"), &isFormat,
@@ -81,23 +81,23 @@ int main(string[] args) {
         return 5;
     }
 
-    if (outputFilename.length == 0) {
-        if (isMerge) {
-            outputFilename = stripExtension(inputFilenameH) ~ ".d";
-        }
-        else {
-            outputFilename = stripExtension(inputFilenameC) ~ ".d";
-        }
+    File outFile = stdout;
+    if (outputFilename.length > 0) {
+        outFile = File(outputFilename, "w");
+    } else {
+        outputFilename = "stdout";
     }
 
     writeln("Processing Source:", inputFilenameC, " and Header:", inputFilenameH, " to ", outputFilename);
 
-    startConversion(inputFilenameC, inputFilenameH, outputFilename);
+    startConversion(inputFilenameC, inputFilenameH, outFile);
+
+
 
     return 0;
 }
 
-void startConversion(string filenameC, string filenameH, string outFilename) {
+void startConversion(string filenameC, string filenameH, File outFile) {
 
     // read the input file
     string inTextC = readText(filenameC);
@@ -133,8 +133,6 @@ void startConversion(string filenameC, string filenameH, string outFilename) {
         // printTree(stdout, preprocTree, verbose);
         // printTree(stdout, tree, verbose);
 
-        // convert input filename to output filename
-        File output = File(outFilename, "w");
 
         auto xmlprinter = new XMLPrinter();
         File newoutput = File("newtree.xml", "w");
@@ -143,9 +141,8 @@ void startConversion(string filenameC, string filenameH, string outFilename) {
 
         // print the tree. 
         // TODO: replace with a dfmt printer
-        DSourcePrinter printer = new DSourcePrinter(output);
+        DSourcePrinter printer = new DSourcePrinter(outFile);
         moduleC.accept(printer);
-        output.close();
 
         // if (isFormat) {
         //     // format the output file using dfmt

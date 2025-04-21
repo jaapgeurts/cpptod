@@ -36,6 +36,7 @@ IdType[string] typeConversionMap = [
     "unsigned long": tok!"ulong",
     "unsigned short": tok!"ushort",
     "unsigned char": tok!"ubyte",
+    "signed char": tok!"byte",
 
 ];
 
@@ -387,6 +388,12 @@ DeclSpecifierSeq convertDeclSpecifierSequence(Tree root) {
         else if (child.name == "FunctionSpecifier") {
             decl.qualifiers ~= child.childs[0].content;
         }
+        else if (child.name == "DeclSpecifierTypedef") {
+            decl.qualifiers ~= child.childs[0].content;
+        }
+        else {
+            writeln("Unknown decl specifier: ", child.name);
+        }
     }
     // If there were multiple types, then we need to join them.
     // E.g. "unsigned int" or "unsigned long long"
@@ -501,10 +508,17 @@ Declarator convertNoptrDeclarator(Tree root) {
 
     if (root.childs[0].nodeType == NodeType.token &&
         root.childs[0].content == "(") {
-        // this is declarator with immediate construction.
-        // e.g. Object a(12,13); 
-        // the a is the declarator but looks like a function.
-        writeln("Declarator with immediate construction not implemented");
+        // it it a function pointer?
+        if (root.childs[2].name == "NoptrDeclarator") {
+            // this is a function pointer
+            declarator_d = convertDeclarator(root.childs[2]);
+        }
+        else {
+            // this is declarator with immediate construction.
+            // e.g. Object a(12,13); 
+            // the a is the declarator but looks like a function.
+            writeln("Declarator with immediate construction not implemented");
+        }
     }
     else {
         // normal DeclaratorId
@@ -519,16 +533,18 @@ Declarator convertPtrDeclarator(Tree root) {
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Declarator declarator_d = new Declarator();
-    TypeSuffix ts = new TypeSuffix();
     if (root.childs[0].childs[0].content == "*") {
+        TypeSuffix ts = new TypeSuffix();
         ts.star = Token(tok!"*", "", 0, 0, 0);
+        declarator_d.cstyle ~= ts;
     }
     else if (root.childs[0].childs[0].content == "&") {
         // TODO: this is not a pointer, but a reference
         // we need to convert it to a ref
-        writeln("Reference not implemented");
+        TypeSuffix ts = new TypeSuffix();
+        ts.star = Token(tok!"ref", "", 0, 0, 0);
+        declarator_d.cstyle ~= ts;
     }
-    declarator_d.cstyle ~= ts;
     Declarator decltor_d = convertDeclarator(root.childs[1]);
     foreach (d; decltor_d.cstyle) {
         declarator_d.cstyle ~= d;
@@ -611,6 +627,7 @@ Declarator convertDeclarator(Tree root) {
         declarator_d = convertInitDeclarator(root);
     }
     else if (root.name == "PtrAbstractDeclarator") {
+        // TODO: multiple pointers not implemented
         declarator_d = new Declarator();
         declarator_d.cstyle ~= new TypeSuffix();
         declarator_d.cstyle[0].star = Token(tok!"*", "", 0, 0, 0);
@@ -622,12 +639,6 @@ Declarator convertDeclarator(Tree root) {
         sfx.low = convertExpression(root.childs[2]);
         declarator_d.cstyle ~= sfx;
     }
-    // else if (root.name == "FunctionDeclarator") {
-    //     // Declaration decl_d = new Declaration();
-    //     // decl_d.functionDeclaration = new FunctionDeclaration();
-
-    //     // declarator_d = convertFunctionDeclarator(root);
-    // }
     else {
         writeln(": Non-terminal or unexpected terminal: " ~ root.name);
         // writeln("HERE1:");
@@ -661,6 +672,8 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
     // Get the declspecifierseq
     DeclSpecifierSeq declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
 
+    bool isTypedef = declSpecSeq.qualifiers.canFind!(e => e == "typedef");
+
     // walk through all the declarators
     foreach (child; root.childs[1].childs) {
         if (child.nodeType == NodeType.token) {
@@ -668,29 +681,65 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
             continue;
         }
         if (child.name == "FunctionDeclarator") {
+            Declaration decl_d = new Declaration();
+            decl_d.attributes ~= declSpecSeq.getAttributes();
             FunctionDeclaration funcDecl_d = convertFunctionDeclarator(child);
             funcDecl_d.returnType = declSpecSeq.getType();
             funcDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
 
-            Declaration decl_d = new Declaration();
-            decl_d.attributes ~= declSpecSeq.getAttributes();
-            decl_d.functionDeclaration = funcDecl_d;
+            if (isTypedef) {
+                // it's a function pointer and since it's a typedef, we need to
+                // create an alias for it.
+                AliasInitializer aliasInit = new AliasInitializer();
+
+                aliasInit.name = funcDecl_d.name;
+
+                FunctionLiteralExpression funcLitExpr = new FunctionLiteralExpression();
+                funcLitExpr.functionOrDelegate = tok!"function";
+                funcLitExpr.parameters = funcDecl_d.parameters;
+                funcLitExpr.returnType = funcDecl_d.returnType;
+                aliasInit.functionLiteralExpression = funcLitExpr;
+
+                AliasDeclaration aliasDecl_d = new AliasDeclaration();
+                aliasDecl_d.initializers ~= aliasInit;
+
+                decl_d.aliasDeclaration = aliasDecl_d;
+            }
+            else {
+                decl_d.functionDeclaration = funcDecl_d;
+            }
             declarations_d ~= decl_d;
         }
         else {
             // assume it's a variable declaration
-
-            VariableDeclaration varDecl_d = new VariableDeclaration();
+            Declaration decl_d = new Declaration();
 
             // first focus on the declspecifier
-            varDecl_d.type = declSpecSeq.getType();
-            varDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
+            Declarator decltor_d = convertDeclarator(child);
 
-            varDecl_d.declarators ~= convertDeclarator(child);
+            if (isTypedef) {
+                AliasInitializer aliasInit = new AliasInitializer();
+                aliasInit.name = decltor_d.name;
+                aliasInit.type = declSpecSeq.getType();
+                aliasInit.type.typeSuffixes ~= decltor_d.cstyle;
+                aliasInit.storageClasses ~= declSpecSeq.getStorageClasses();
 
-            Declaration decl_d = new Declaration();
-            decl_d.attributes ~= declSpecSeq.getAttributes();
-            decl_d.variableDeclaration = varDecl_d;
+                AliasDeclaration aliasDecl_d = new AliasDeclaration();
+                aliasDecl_d.initializers ~= aliasInit;
+
+                decl_d.aliasDeclaration = aliasDecl_d;
+            }
+            else {
+
+                VariableDeclaration varDecl_d = new VariableDeclaration();
+                varDecl_d.type = declSpecSeq.getType();
+                varDecl_d.storageClasses ~= declSpecSeq.getStorageClasses();
+                varDecl_d.declarators ~= decltor_d;
+
+                decl_d = new Declaration();
+                decl_d.attributes ~= declSpecSeq.getAttributes();
+                decl_d.variableDeclaration = varDecl_d;
+            }
             declarations_d ~= decl_d;
 
         }
@@ -792,13 +841,14 @@ Declaration convertSimpleDeclaration3(Tree root) {
             structDecl_d = new StructDeclaration();
             structDecl_d.name = recordName;
             structDecl_d.structBody = structBody_d;
+            decl_d.structDeclaration = structDecl_d;
         }
         else if (recordType == RecordType.Class) {
             classDecl_d = new ClassDeclaration();
             classDecl_d.name = recordName;
             classDecl_d.structBody = structBody_d;
+            decl_d.classDeclaration = classDecl_d;
         }
-        decl_d.classDeclaration = classDecl_d;
     }
     else {
         writeln("Unknown decl declspecifier: ", declSpecSeq.childs[0].name);
@@ -830,21 +880,17 @@ Declaration convertMemberDeclaration1(Tree root) {
 
     decl_d.attributes ~= declSpecSeq.getAttributes();
 
-    if (declTor_c.name == "PtrDeclarator") {
-        if (declTor_c.childs[0].childs[0].content == "*") {
-            TypeSuffix ts = new TypeSuffix();
-            ts.star = Token(tok!"*", "", 0, 0, 0);
-            type_d.typeSuffixes ~= ts;
-        }
-        else if (declTor_c.childs[0].childs[0].content == "&") {
-            Attribute attribute = new Attribute();
-            attribute.attribute = Token(tok!"ref", "ref", 0, 0, 0);
-            decl_d.attributes ~= attribute;
-        }
-        // The declarator is the child of the ptr declarator
+    // in C the pointer/array qualifiers are part of the declarator 
+    // eat them up to the first non-terminal  
+    while (declTor_c.nodeType == NodeType.nonterminal &&
+        declTor_c.name == "PtrDeclarator") {
+        // TypeSuffix ts = new TypeSuffix();
+        // ts.star = Token(tok!"*", "", 0, 0, 0);
+        // type_d.typeSuffixes ~= ts;
         declTor_c = declTor_c.childs[1];
     }
 
+    // TODO: should I call convertFunctionDeclarator instead?
     if (declTor_c.name == "FunctionDeclarator") {
         // This is a function signature only.
         FunctionDeclaration funcDecl_d = new FunctionDeclaration();
@@ -873,6 +919,13 @@ Declaration convertMemberDeclaration1(Tree root) {
                 }
             }
         }
+        if (declTor_c.childs[1].childs[3].childs.length > 0) {
+            if (declTor_c.childs[1].childs[3].childs[0].name == "CvQualifier") {
+                MemberFunctionAttribute attr = new MemberFunctionAttribute();
+                attr.tokenType = tok!"const";
+                funcDecl_d.memberFunctionAttributes ~= attr;
+            }
+        }
 
         decl_d.functionDeclaration = funcDecl_d;
     }
@@ -896,6 +949,7 @@ Declaration convertMemberDeclaration1(Tree root) {
 
         decl_d.variableDeclaration = varDecl_d;
     }
+
     return decl_d;
 }
 
@@ -920,8 +974,14 @@ Parameter convertParameterDeclaration(Tree root) {
         Declarator decl_d = convertDeclarator(root.childs[1]);
         if (decl_d) {
             param_d.name = decl_d.name;
-            param_d.cstyle ~= decl_d.cstyle;
+            if (decl_d.cstyle.canFind!(e => e.star == tok!"ref")) {
+                decl_d.cstyle = decl_d.cstyle.remove!(e => e.star == tok!"ref");
+                ParameterAttribute attribute = new ParameterAttribute();
+                attribute.idType = tok!"ref";
+                param_d.parameterAttributes ~= attribute;
+            }
         }
+        param_d.cstyle ~= decl_d.cstyle;
     }
 
     return param_d;
@@ -962,6 +1022,15 @@ FunctionDeclaration convertFunctionDeclarator(Tree root) {
     // get the declarator (i.e. the function name)
     Declarator decltor_d = convertDeclarator(root.childs[0]);
     funcdecl_d.name = decltor_d.name;
+
+    if (root.childs[1].childs[3].childs.length > 0) {
+        // this function has attributes
+        if (root.childs[1].childs[3].childs[0].name == "CvQualifier") {
+            MemberFunctionAttribute attr = new MemberFunctionAttribute();
+            attr.tokenType = tok!"const";
+            funcdecl_d.memberFunctionAttributes ~= attr;
+        }
+    }
 
     // now add the parameters
     funcdecl_d.parameters = convertParametersAndQualifiers(root.childs[1]);
@@ -1038,8 +1107,8 @@ Declaration convertFunctionDefinitionMember(Tree root) {
         funcdecl_d.functionBody = new FunctionBody();
         funcdecl_d.functionBody.specifiedFunctionBody = new SpecifiedFunctionBody();
 
-        writeln("HERE1:");
-        showTree(root);
+        // writeln("HERE1:");
+        // showTree(root);
         BlockStatement blockStmt_d = convertCompoundStatement(funcbody_c.childs[1]);
 
         funcdecl_d.functionBody.specifiedFunctionBody.blockStatement = blockStmt_d;
