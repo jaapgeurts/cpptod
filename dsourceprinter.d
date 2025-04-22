@@ -62,6 +62,9 @@ class DSourcePrinter : ASTVisitor {
         else if (attr.attribute == tok!"override") {
             fmt.write("override");
         }
+        else if (attr.attribute == tok!"abstract") {
+            fmt.write("abstract");
+        }
     }
 
     override void visit(const AttributeDeclaration decl) {
@@ -109,6 +112,33 @@ class DSourcePrinter : ASTVisitor {
         fmt.writeln();
     }
 
+    override void visit(const EnumDeclaration decl) {
+        fmt.write("enum ");
+        this.visit(decl.name);
+        this.visit(decl.enumBody);
+    }
+
+    override void visit (const EnumBody enumbody) {
+        fmt.writeln(" {");
+        fmt.indent();
+        foreach(i, member; enumbody.enumMembers) {
+            this.visit(member);
+            fmt.writeln(",");
+        }
+        fmt.dedent();
+        fmt.writeln("}");
+    }
+
+    override void visit(const EnumMember member) {
+        if (member.name != 0) {
+            this.visit(member.name);
+        }
+        if (member.assignExpression) {
+            fmt.write(" = ");
+            super.dynamicDispatch(member.assignExpression);
+        }
+    }
+
     override void visit(const Parameters params) {
         // TODO: can also be done with lambda expression
         foreach (i, param; params.parameters) {
@@ -154,6 +184,15 @@ class DSourcePrinter : ASTVisitor {
         else {
             expr.accept(this);
         }
+    }
+
+    override void visit(const ShiftExpression expr) {
+        super.dynamicDispatch(expr.left);
+        if (expr.operator == tok!">>")
+            fmt.write(" >> ");
+        else if (expr.operator == tok!"<<")
+            fmt.write(" << ");
+        super.dynamicDispatch(expr.right);
     }
 
     override void visit(const UnaryExpression expr) {
@@ -334,7 +373,7 @@ class DSourcePrinter : ASTVisitor {
         fmt.write("for (");
         if (stmt.initialization)
             stmt.initialization.accept(this);
-        // fmt.write("; ");
+        fmt.write("; ");
         if (stmt.test)
             super.dynamicDispatch(stmt.test);
         fmt.write("; ");

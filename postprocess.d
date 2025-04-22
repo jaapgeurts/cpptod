@@ -4,47 +4,86 @@ import std.stdio;
 
 import dparse.ast;
 
-FunctionBody findBodyForFunction(Module mod, string name) {
+// conversion of this class constructor name to 'this' is done in the translator
+
+FunctionBody findBodyForFunction(Module mod, const FunctionDeclaration hdrFunc) {
+outer:
     foreach (decl; mod.declarations) {
-        if (const FunctionDeclaration func = decl.functionDeclaration) {
+        if (const FunctionDeclaration srcFunc = decl.functionDeclaration) {
             // TODO: now only compares the name, but we should compare the full signature
-            if (func.name.text == name) {
-                return cast(FunctionBody) func.functionBody;
+            if (srcFunc.name.text == hdrFunc.name.text) {
+                if (srcFunc.parameters is null && hdrFunc.parameters is null) {
+                    return cast(FunctionBody) srcFunc.functionBody;
+                }
+                if (srcFunc.parameters is null || hdrFunc.parameters is null) {
+                    continue;
+                }
+                if (srcFunc.parameters.parameters.length != hdrFunc.parameters.parameters.length) {
+                    continue;
+                }
+
+                for (int i = 0; i < srcFunc.parameters.parameters.length; i++) {
+                    if (
+                        srcFunc.parameters.parameters[i].type != hdrFunc
+                        .parameters.parameters[i].type) {
+                        continue outer;
+                    }
+                }
+                return cast(FunctionBody) srcFunc.functionBody;
             }
         }
     }
     return null;
 }
 
-void removeFunction(Module tree, string name) {
+void removeFunction(Module tree, const FunctionDeclaration hdrFunc) {
+outer:
     // remove the function from the module
     for (int i = 0; i < tree.declarations.length; i++) {
-        if (const FunctionDeclaration func = tree.declarations[i].functionDeclaration) {
-            if (func.name.text == name) {
+        if (const FunctionDeclaration srcFunc = tree.declarations[i].functionDeclaration) {
+            if (srcFunc.name.text == hdrFunc.name.text) {
+                if (srcFunc.parameters is null && hdrFunc.parameters is null) {
+                    tree.declarations = tree.declarations[0 .. i] ~ tree.declarations[i + 1 .. $];
+                    return;
+                }
+                if (srcFunc.parameters is null || hdrFunc.parameters is null) {
+                    continue;
+                }
+                if (srcFunc.parameters.parameters.length != hdrFunc.parameters.parameters.length) {
+                    continue;
+                }
+                for (int j = 0; j < srcFunc.parameters.parameters.length; j++) {
+                    if (
+                        srcFunc.parameters.parameters[j].type != hdrFunc
+                        .parameters.parameters[j].type) {
+                        continue outer;
+                    }
+                }
                 tree.declarations = tree.declarations[0 .. i] ~ tree.declarations[i + 1 .. $];
                 return;
             }
         }
     }
-    writeln("Function ", name, " not found in tree for removal");
+    writeln("Function ", hdrFunc.name.text, " not found in tree for removal");
 }
 
 // Merges treeC into treeH, removing all declarations from treeC that are also in treeH
 Module mergeTrees(Module treeC, Module treeH) {
 
-    // First find all function declarations without a body at the top level of treeH
+    // First find all function declarations without a body at the top level
+    // of header file (treeH) and attach the function body from treeC to them
     foreach (decl; treeH.declarations) {
-        if (const FunctionDeclaration func = decl.functionDeclaration) {
-            if (func.functionBody is null) {
+        if (const FunctionDeclaration hdrFunc = decl.functionDeclaration) {
+            if (hdrFunc.functionBody is null) {
                 // find this function in treeC
-                auto funcBody = treeC.findBodyForFunction(func.name.text);
+                auto funcBody = treeC.findBodyForFunction(hdrFunc);
                 if (funcBody !is null) {
-                    cast(FunctionBody) func.functionBody = funcBody;
-                    treeC.removeFunction(func.name.text);
+                    cast(FunctionBody) hdrFunc.functionBody = funcBody;
+                    treeC.removeFunction(hdrFunc);
                 }
                 else {
                     // TODO: bring in the name
-                    writeln("Function ", func.name.text, " not found in treeC");
+                    writeln("Function ", hdrFunc.name.text, " not found in treeC");
                 }
             }
         }
@@ -56,14 +95,18 @@ Module mergeTrees(Module treeC, Module treeH) {
             string className = classDecl.name.text;
             // find all the functions in the classes without bodies
             foreach (memberDecl; classDecl.structBody.declarations) {
-                if (const FunctionDeclaration func = memberDecl.functionDeclaration) {
-                    if (func.functionBody is null) {
-                        string qualifiedName = className ~ "." ~ func.name.text;
+                if (const FunctionDeclaration hdrFunc = memberDecl.functionDeclaration) {
+                    if (hdrFunc.functionBody is null) {
+                        string qualifiedName = className ~ "." ~ hdrFunc.name.text;
                         // find the function in treeC
-                        auto funcBody = treeC.findBodyForFunction(qualifiedName);
+                        auto tFunc = new FunctionDeclaration();
+                        tFunc.name = hdrFunc.name;
+                        tFunc.name.text = qualifiedName;
+                        tFunc.parameters = cast(Parameters) hdrFunc.parameters;
+                        auto funcBody = treeC.findBodyForFunction(tFunc);
                         if (funcBody !is null) {
-                            cast(FunctionBody) func.functionBody = funcBody;
-                            treeC.removeFunction(qualifiedName);
+                            cast(FunctionBody) hdrFunc.functionBody = funcBody;
+                            treeC.removeFunction(tFunc);
                         }
                         else {
                             writeln("Member function ", qualifiedName, " not found in treeC");

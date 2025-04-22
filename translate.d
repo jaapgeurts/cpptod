@@ -23,19 +23,11 @@ import parser;
 alias DeclSpecifierSeq = Tuple!(string, "typeName", string[], "qualifiers");
 
 IdType[string] typeConversionMap = [
-    "int": tok!"int",
-    "void": tok!"void",
-    "float": tok!"float",
-    "double": tok!"double",
-    "short": tok!"short",
-    "long": tok!"long",
-    "bool": tok!"bool",
-    "char": tok!"char",
-    "unsigned": tok!"uint",
-    "unsigned int": tok!"uint",
-    "unsigned long": tok!"ulong",
-    "unsigned short": tok!"ushort",
-    "unsigned char": tok!"ubyte",
+    "int": tok!"int", "void": tok!"void", "float": tok!"float",
+    "double": tok!"double", "short": tok!"short", "long": tok!"long",
+    "bool": tok!"bool", "char": tok!"char", "unsigned": tok!"uint",
+    "unsigned int": tok!"uint", "unsigned long": tok!"ulong",
+    "unsigned short": tok!"ushort", "unsigned char": tok!"ubyte",
     "signed char": tok!"byte",
 
 ];
@@ -67,7 +59,7 @@ void showTreeRec(Tree root, int index, int depth = 1000, string prefix = "", boo
         text = "\x1b[1;34m" ~ text ~ "\x1b[0m";
     else if (root.nodeType == NodeType.merged)
         text = "\x1b[1;35m" ~ text ~ "\x1b[0m";
-    // else if (root.nodeType == NodeType.array) 
+    // else if (root.nodeType == NodeType.array)
     //     text = "\x1b[1;33m" ~ text ~ "\x1b[0m";
     else if (root.nodeType == NodeType.nonterminal)
         text = "\x1b[0;32m" ~ text ~ "\x1b[0m";
@@ -95,7 +87,7 @@ Type2 toType2(string identifier) {
     type2_d.typeIdentifierPart = new TypeIdentifierPart();
     type2_d.typeIdentifierPart.identifierOrTemplateInstance = new IdentifierOrTemplateInstance();
     type2_d.typeIdentifierPart.identifierOrTemplateInstance.identifier = Token(
-        tok!"identifier", identifier, 0, 0, 0);
+            tok!"identifier", identifier, 0, 0, 0);
     return type2_d;
 }
 
@@ -119,8 +111,8 @@ Type getType(DeclSpecifierSeq decl) {
     }
     else {
         type2_d.typeIdentifierPart = new TypeIdentifierPart();
-        type2_d.typeIdentifierPart.identifierOrTemplateInstance =
-            decl.typeName.toIdentifierOrTemplateInstance();
+        type2_d.typeIdentifierPart.identifierOrTemplateInstance
+            = decl.typeName.toIdentifierOrTemplateInstance();
     }
     Type type_d = new Type();
     type_d.type2 = type2_d;
@@ -183,8 +175,7 @@ Module transpileFile(Tree root) {
 
 Module convertTranslationUnit(Tree tree) {
 
-    if (tree.nodeType != NodeType.nonterminal
-        || tree.name != "TranslationUnit")
+    if (tree.nodeType != NodeType.nonterminal || tree.name != "TranslationUnit")
         throw new Exception("File does not contain a TranslationUnit");
 
     Module m = new Module();
@@ -230,13 +221,13 @@ Module convertTranslationUnit(Tree tree) {
             }
             if (m.declarations[$ - 1].variableDeclaration !is null) {
                 // writeln("Setting comment for variable declaration");
-                (cast(VariableDeclaration) m.declarations[$ - 1].variableDeclaration).comment ~= "\n" ~ child
-                    .childs[0].content;
+                (cast(VariableDeclaration) m.declarations[$ - 1].variableDeclaration).comment
+                    ~= "\n" ~ child.childs[0].content;
             }
             else if (m.declarations[$ - 1].functionDeclaration !is null) {
                 // writeln("Setting comment for function declaration");
-                (cast(FunctionDeclaration) m.declarations[$ - 1].functionDeclaration).comment ~= "\n" ~ child
-                    .childs[0].content;
+                (cast(FunctionDeclaration) m.declarations[$ - 1].functionDeclaration).comment
+                    ~= "\n" ~ child.childs[0].content;
             }
             else {
                 writeln("Unknown declaration type for comment: ", m.declarations[$ - 1].toString());
@@ -256,8 +247,7 @@ Module convertTranslationUnit(Tree tree) {
 
 Declaration convertDirective(Tree root) {
 
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "PP_Directive")
+    if (root.nodeType != NodeType.nonterminal || root.name != "PP_Directive")
         throw new Exception("Expected Directive");
 
     auto child = root.childs[0];
@@ -276,7 +266,8 @@ Declaration convertDirective(Tree root) {
         return decl;
         break;
     case "PP_Define":
-        if (child.childs.length > 3 && child.childs[3]!is null && child.childs[3].name == "PP_DefineValue") {
+        if (child.childs.length > 3 && child.childs[3]!is null
+                && child.childs[3].name == "PP_DefineValue") {
             // simple variable define
 
             // The initializer
@@ -293,7 +284,8 @@ Declaration convertDirective(Tree root) {
                 // The storage class enum
                 primaryExpression = new PrimaryExpression();
                 // If it's a literal
-                primaryExpression.primary = Token(tok!"int", child.childs[3].childs[0].childs[0].content, 0, 0, 0);
+                primaryExpression.primary = Token(tok!"int",
+                        child.childs[3].childs[0].childs[0].content, 0, 0, 0);
 
             }
             UnaryExpression unaryExpr = new UnaryExpression();
@@ -345,14 +337,13 @@ Declaration convertDirective(Tree root) {
 //******************************
 
 Type convertTypeIdAndNewTypeId(Tree root) {
-    if (root.nodeType != NodeType.nonterminal ||
-        (root.name != "TypeId" && root.name != "NewTypeId"))
+    if (root.nodeType != NodeType.nonterminal || (root.name != "TypeId" && root.name != "NewTypeId"))
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Type type_d = new Type();
 
-    if (root.childs[0].nodeType == NodeType.array &&
-        root.childs[0].childs[0].name == "NameIdentifier") {
+    if (root.childs[0].nodeType == NodeType.array
+            && root.childs[0].childs[0].name == "NameIdentifier") {
         type_d.type2 = convertIdentifier(root.childs[0].childs[0]).toType2();
     }
     if (root.childs.length == 2 && root.childs[1]!is null) {
@@ -367,21 +358,23 @@ Type convertTypeIdAndNewTypeId(Tree root) {
 
 }
 
+// TODO: consider making non virtual methods "final" by default.
+// and virtual methods default methods.
+// D does not have the concept of virtual methods.
+// to emulate non virtual methods, we need to add the "final" attribute
+// C++ methods that are declared virtual are virtual by default in D.
 DeclSpecifierSeq convertDeclSpecifierSequence(Tree root) {
-    if (root.nodeType != NodeType.nonterminal ||
-        root.name != "DeclSpecifierSeq")
+    if (root.nodeType != NodeType.nonterminal || root.name != "DeclSpecifierSeq")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     DeclSpecifierSeq decl;
 
     string[] typeName;
     foreach (child; root.childs[0].childs) {
-        if (child.name == "TypeKeyword" ||
-            child.name == "NameIdentifier") {
+        if (child.name == "TypeKeyword" || child.name == "NameIdentifier") {
             typeName ~= child.childs[0].content;
         }
-        else if (child.name == "CvQualifier" ||
-            child.name == "StorageClassSpecifier") {
+        else if (child.name == "CvQualifier" || child.name == "StorageClassSpecifier") {
             // these things are specific to D only
             decl.qualifiers ~= child.childs[0].content;
         }
@@ -403,8 +396,7 @@ DeclSpecifierSeq convertDeclSpecifierSequence(Tree root) {
 }
 
 Type convertTypeKeyword(Tree root) {
-    if (root.nodeType != NodeType.nonterminal ||
-        root.name != "TypeKeyword")
+    if (root.nodeType != NodeType.nonterminal || root.name != "TypeKeyword")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Type type_d = new Type();
@@ -427,10 +419,8 @@ Type convertType(Tree root) {
         return convertType(root.childs[0]);
 
     // Type can either be a TypeKeyword or a NameIdentifier or a SimpleTypeSpecifierNoKeyword
-    if (root.nodeType != NodeType.nonterminal ||
-        (root.name != "TypeKeyword" &&
-            root.name != "NameIdentifier" &&
-            root.name != "SimpleTypeSpecifierNoKeyword"))
+    if (root.nodeType != NodeType.nonterminal || (root.name != "TypeKeyword"
+            && root.name != "NameIdentifier" && root.name != "SimpleTypeSpecifierNoKeyword"))
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Type type_d;
@@ -447,8 +437,7 @@ Type convertType(Tree root) {
         auto right = convertIdentifier(root.childs[1]);
         Type2 type2_d = new Type2();
         type2_d.typeIdentifierPart = new TypeIdentifierPart();
-        type2_d.typeIdentifierPart.identifierOrTemplateInstance =
-            (left ~ right)
+        type2_d.typeIdentifierPart.identifierOrTemplateInstance = (left ~ right)
             .toIdentifierOrTemplateInstance();
         type_d = new Type();
         type_d.type2 = type2_d;
@@ -458,8 +447,7 @@ Type convertType(Tree root) {
 
 // TODO: should this be converted to a identifierortemplatechain?
 UnaryExpression convertQualifiedId(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "QualifiedId")
+    if (root.nodeType != NodeType.nonterminal || root.name != "QualifiedId")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     UnaryExpression unaryExpr_d = cast(UnaryExpression) convertExpression(root.childs[2]);
@@ -473,11 +461,9 @@ UnaryExpression convertQualifiedId(Tree root) {
 //******************************
 
 string convertIdentifier(Tree root) {
-    if (root.nodeType != NodeType.nonterminal || (
-            root.name != "DeclaratorId" &&
-            root.name != "QualifiedId" &&
-            root.name != "NameIdentifier" &&
-            root.name != "NestedNameSpecifier"))
+    if (root.nodeType != NodeType.nonterminal || (root.name != "DeclaratorId"
+            && root.name != "QualifiedId" && root.name != "UnqualifiedId"
+            && root.name != "NameIdentifier" && root.name != "NestedNameSpecifier"))
         throw new Exception("Non-terminal: " ~ root.asText);
 
     string result;
@@ -495,19 +481,20 @@ string convertIdentifier(Tree root) {
         else if (child.name == "NameIdentifier") {
             result ~= child.childs[0].content;
         }
+        else if (child.name == "UnqualifiedId") {
+            result ~= child.childs[0].content ~ convertIdentifier(child.childs[1]);
+        }
     }
     return result;
 }
 
 Declarator convertNoptrDeclarator(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "NoptrDeclarator")
+    if (root.nodeType != NodeType.nonterminal || root.name != "NoptrDeclarator")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Declarator declarator_d = new Declarator();
 
-    if (root.childs[0].nodeType == NodeType.token &&
-        root.childs[0].content == "(") {
+    if (root.childs[0].nodeType == NodeType.token && root.childs[0].content == "(") {
         // it it a function pointer?
         if (root.childs[2].name == "NoptrDeclarator") {
             // this is a function pointer
@@ -515,7 +502,7 @@ Declarator convertNoptrDeclarator(Tree root) {
         }
         else {
             // this is declarator with immediate construction.
-            // e.g. Object a(12,13); 
+            // e.g. Object a(12,13);
             // the a is the declarator but looks like a function.
             writeln("Declarator with immediate construction not implemented");
         }
@@ -528,8 +515,7 @@ Declarator convertNoptrDeclarator(Tree root) {
 }
 
 Declarator convertPtrDeclarator(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "PtrDeclarator")
+    if (root.nodeType != NodeType.nonterminal || root.name != "PtrDeclarator")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Declarator declarator_d = new Declarator();
@@ -550,7 +536,7 @@ Declarator convertPtrDeclarator(Tree root) {
     foreach (d; decltor_d.cstyle) {
         declarator_d.cstyle ~= d;
     }
-    // TODO: deal with const inside the declarator because 
+    // TODO: deal with const inside the declarator because
     // in D they are part of the type, not the variable.
 
     declarator_d.name = decltor_d.name;
@@ -558,8 +544,7 @@ Declarator convertPtrDeclarator(Tree root) {
 }
 
 Initializer convertInitializer(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "Initializer")
+    if (root.nodeType != NodeType.nonterminal || root.name != "Initializer")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Initializer init_d = new Initializer();
@@ -573,8 +558,7 @@ Initializer convertInitializer(Tree root) {
 }
 
 Initializer convertBraceInitializer(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "BraceOrEqualInitializer")
+    if (root.nodeType != NodeType.nonterminal || root.name != "BraceOrEqualInitializer")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Initializer init_d = new Initializer();
@@ -588,8 +572,7 @@ Initializer convertBraceInitializer(Tree root) {
 }
 
 Declarator convertInitDeclarator(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "InitDeclarator")
+    if (root.nodeType != NodeType.nonterminal || root.name != "InitDeclarator")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Declarator declarator_d = convertDeclarator(root.childs[0]);
@@ -652,7 +635,7 @@ Declarator convertDeclarator(Tree root) {
 }
 
 /* convertSimpleDeclaration1
- * 
+ *
  * Converts a SimpleDeclaration1 node to one or more Declaration nodes.
  * TODO: In C, pointers/arrays attach to variable names; in D, they attach to the type.
  * So we check each declarator, and if some use pointers/arrays, we split them.
@@ -661,11 +644,10 @@ Declarator convertDeclarator(Tree root) {
  *
  * Returns a list of Declaration nodes.
  */
-
+/** Converts a simple declaration */
 Declaration[] convertSimpleDeclaration1(Tree root) {
 
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "SimpleDeclaration1")
+    if (root.nodeType != NodeType.nonterminal || root.name != "SimpleDeclaration1")
         throw new Exception("Expected SimpleDeclaration1");
 
     Declaration[] declarations_d;
@@ -750,8 +732,7 @@ Declaration[] convertSimpleDeclaration1(Tree root) {
 }
 
 Declaration convertSimpleDeclaration3(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "SimpleDeclaration3")
+    if (root.nodeType != NodeType.nonterminal || root.name != "SimpleDeclaration3")
         throw new Exception("Expected SimpleDeclaration3");
 
     Declaration decl_d = new Declaration();
@@ -779,8 +760,14 @@ Declaration convertSimpleDeclaration3(Tree root) {
             if (child is null)
                 continue;
             if (child.name == "ClassKey") {
-                recordType = child.childs[0].content == "struct"
-                    ? RecordType.Struct : RecordType.Class;
+                if (child.childs[0].content == "struct") {
+                    recordType = RecordType.Struct;
+                    structDecl_d = new StructDeclaration();
+                }
+                else {
+                    recordType = RecordType.Class;
+                    classDecl_d = new ClassDeclaration();
+                }
             }
             else if (child.name == "ClassHeadName") {
                 recordName = convertIdentifier(child.childs[1]).toIdentifierToken();
@@ -806,7 +793,7 @@ Declaration convertSimpleDeclaration3(Tree root) {
                 structBody_d.declarations ~= convertMemberDeclaration1(decl);
             }
             else if (decl.name == "MemberDeclaration2") {
-                // structBody_d.declarations ~= convertMemberDeclaration2(decl);
+                structBody_d.declarations ~= convertMemberDeclaration2(decl);
             }
             else if (decl.name == "FunctionDefinitionMember") {
                 // This is a complete member function definition
@@ -842,13 +829,12 @@ Declaration convertSimpleDeclaration3(Tree root) {
 
         // determine if this is a class or struct
         if (recordType == RecordType.Struct) {
-            structDecl_d = new StructDeclaration();
             structDecl_d.name = recordName;
             structDecl_d.structBody = structBody_d;
             decl_d.structDeclaration = structDecl_d;
         }
         else if (recordType == RecordType.Class) {
-            classDecl_d = new ClassDeclaration();
+
             classDecl_d.name = recordName;
             classDecl_d.structBody = structBody_d;
             decl_d.classDeclaration = classDecl_d;
@@ -861,22 +847,69 @@ Declaration convertSimpleDeclaration3(Tree root) {
     return decl_d;
 }
 
+EnumDeclaration convertEnumSpecifier(Tree root) {
+    if (root.nodeType != NodeType.nonterminal || root.name != "EnumSpecifier")
+        throw new Exception("Expected EnumSpecifier");
+
+    EnumDeclaration enumDecl_d = new EnumDeclaration();
+
+    EnumBody enumBody_d = new EnumBody();
+    // get the enum name
+    // TODO: enum name not implemented
+    foreach (child; root.childs[2].childs) {
+        if (child.nodeType == NodeType.token) {
+            // skip the comma
+            continue;
+        }
+        if (child.name == "Enumerator") {
+            EnumMember enumMember_d = new EnumMember();
+            enumMember_d.name = child.childs[0].content.toIdentifierToken();
+            enumMember_d.assignExpression = convertExpression(child.childs[1].childs[1]);
+            enumBody_d.enumMembers ~= enumMember_d;
+        }
+    }
+    enumDecl_d.enumBody = enumBody_d;
+
+    return enumDecl_d;
+
+}
+
+Declaration convertMemberDeclaration2(Tree root) {
+    if (root.nodeType != NodeType.nonterminal || root.name != "MemberDeclaration2")
+        throw new Exception("Expected MemberDeclaration2");
+
+    Declaration decl_d = new Declaration();
+
+    auto declSpec_c = root.childs[0];
+    if (declSpec_c.childs[0].childs[0].name == "EnumSpecifier") {
+        EnumDeclaration enumDecl_d = convertEnumSpecifier(declSpec_c.childs[0].childs[0]);
+        decl_d.enumDeclaration = enumDecl_d;
+    }
+    else {
+        writeln("MemberDeclaration2: Unknown declspecifier: ", declSpec_c.childs[0].childs[0].name);
+    }
+
+    return decl_d;
+}
+
 // TODO: this could be an array too.
 Declaration convertMemberDeclaration1(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "MemberDeclaration1")
+    if (root.nodeType != NodeType.nonterminal || root.name != "MemberDeclaration1")
         throw new Exception("Expected MemberDeclaration1");
 
     Declaration decl_d = new Declaration();
 
     // get the type for this declaration
     DeclSpecifierSeq declSpecSeq;
-    bool isConstructor = false;
+    bool isCtorDtor = false;
     if (root.childs[0] is null) {
-        isConstructor = true;
+        isCtorDtor = true;
     }
     else {
         declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+        if (declSpecSeq.typeName.length == 0) {
+            isCtorDtor = true;
+        }
     }
 
     Type type_d = declSpecSeq.getType();
@@ -884,10 +917,9 @@ Declaration convertMemberDeclaration1(Tree root) {
 
     decl_d.attributes ~= declSpecSeq.getAttributes();
 
-    // in C the pointer/array qualifiers are part of the declarator 
-    // eat them up to the first non-terminal  
-    while (declTor_c.nodeType == NodeType.nonterminal &&
-        declTor_c.name == "PtrDeclarator") {
+    // in C the pointer/array qualifiers are part of the declarator
+    // eat them up to the first non-terminal
+    while (declTor_c.nodeType == NodeType.nonterminal && declTor_c.name == "PtrDeclarator") {
         // TypeSuffix ts = new TypeSuffix();
         // ts.star = Token(tok!"*", "", 0, 0, 0);
         // type_d.typeSuffixes ~= ts;
@@ -899,10 +931,19 @@ Declaration convertMemberDeclaration1(Tree root) {
         FunctionDeclaration funcDecl_d = convertFunctionDeclarator(declTor_c);
         funcDecl_d.storageClasses = declSpecSeq.getStorageClasses();
 
-        if (isConstructor) {
-            // constructor
-            funcDecl_d.name = Token(tok!"this", "this", 0, 0, 0);
+        if (isCtorDtor) {
+            // constructor or destructor
+            if (funcDecl_d.name.text[0] == '~') {
+                // destructor
+                funcDecl_d.name = Token(tok!"identifier", "~this", 0, 0, 0);
+            }
+            else {
+                // constructor
+                funcDecl_d.name = Token(tok!"identifier", "this", 0, 0, 0);
+            }
         }
+
+        funcDecl_d.returnType = type_d;
 
         decl_d.functionDeclaration = funcDecl_d;
     }
@@ -931,9 +972,8 @@ Declaration convertMemberDeclaration1(Tree root) {
 }
 
 Parameter convertParameterDeclaration(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || (root.name != "ParameterDeclaration" &&
-            root.name != "ParameterDeclarationAbstract"))
+    if (root.nodeType != NodeType.nonterminal || (root.name != "ParameterDeclaration"
+            && root.name != "ParameterDeclarationAbstract"))
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     Parameter param_d = new Parameter();
@@ -966,8 +1006,7 @@ Parameter convertParameterDeclaration(Tree root) {
 }
 
 Parameters convertParametersAndQualifiers(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "ParametersAndQualifiers")
+    if (root.nodeType != NodeType.nonterminal || root.name != "ParametersAndQualifiers")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     auto params = root.childs[1];
@@ -990,8 +1029,7 @@ Parameters convertParametersAndQualifiers(Tree root) {
 }
 
 FunctionDeclaration convertFunctionDeclarator(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDeclarator")
+    if (root.nodeType != NodeType.nonterminal || root.name != "FunctionDeclarator")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     FunctionDeclaration funcdecl_d = new FunctionDeclaration();
@@ -1003,7 +1041,7 @@ FunctionDeclaration convertFunctionDeclarator(Tree root) {
     // now add the parameters
     funcdecl_d.parameters = convertParametersAndQualifiers(root.childs[1]);
 
-    // check for final const / override 
+    // check for final const / override
     if (root.childs[2].childs.length > 0) {
         if (root.childs[2].childs[0].name == "VirtSpecifier") {
             if (root.childs[2].childs[0].childs[0].content == "override") {
@@ -1028,17 +1066,20 @@ FunctionDeclaration convertFunctionDeclarator(Tree root) {
 
 FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
 
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDefinitionHead")
+    if (root.nodeType != NodeType.nonterminal || root.name != "FunctionDefinitionHead")
         throw new Exception("Expected FunctionDefinitionHead");
 
     DeclSpecifierSeq declSpecSeq;
-    bool isConstructor = false;
+    bool isCtorDtor = false;
     if (root.childs[0] is null) {
-        isConstructor = true;
+        isCtorDtor = true;
     }
     else {
         declSpecSeq = convertDeclSpecifierSequence(root.childs[0]);
+        if (declSpecSeq.typeName.length == 0) {
+            // this is a constructor or destructor
+            isCtorDtor = true;
+        }
     }
 
     Type type_d = declSpecSeq.getType();
@@ -1062,11 +1103,12 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
     }
     funcdecl_d.returnType = type_d;
     funcdecl_d.attributes ~= declSpecSeq.getAttributes();
-    if (isConstructor) {
+    if (isCtorDtor) {
         // magic incantation to replace the last identifier with "this"
         // if it is a constructor then the final part of a qualified id must be "this"
-        string name = (funcdecl_d.name.text.split('.')[0 .. $ - 1] ~ "this").join('.');
-        funcdecl_d.name = Token(tok!"this", name, 0, 0, 0);
+        string ctordtor = funcdecl_d.name.text[0] == '~' ? "~this" : "this";
+        string name = (funcdecl_d.name.text.split('.')[0 .. $ - 1] ~ ctordtor).join('.');
+        funcdecl_d.name = Token(tok!"identifier", name, 0, 0, 0);
     }
 
     return funcdecl_d;
@@ -1074,16 +1116,13 @@ FunctionDeclaration convertFunctionDefinitionHead(Tree root) {
 
 // TODO: consider mergin with convertFunctionDefinitionGlobal
 Declaration convertFunctionDefinitionMember(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDefinitionMember")
+    if (root.nodeType != NodeType.nonterminal || root.name != "FunctionDefinitionMember")
         throw new Exception("Expected FunctionDefinitionMember");
 
-    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(
-        root.childs[0]);
+    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(root.childs[0]);
 
-    if (root.childs[1].nodeType == NodeType.token &&
-        root.childs[1].content == "=" &&
-        root.childs[2].content == "0") {
+    if (root.childs[1].nodeType == NodeType.token
+            && root.childs[1].content == "=" && root.childs[2].content == "0") {
         // this is a pure virtual function → abstract in D
         Attribute attrib = new Attribute();
         attrib.attribute = Token(tok!"abstract", "abstract", 0, 0, 0);
@@ -1109,12 +1148,10 @@ Declaration convertFunctionDefinitionMember(Tree root) {
 
 // TODO: consider merging with convertFunctionDefinitionMember
 Declaration convertFunctionDefinitionGlobal(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "FunctionDefinitionGlobal")
+    if (root.nodeType != NodeType.nonterminal || root.name != "FunctionDefinitionGlobal")
         throw new Exception("Expected FunctionDefinitionGlobal");
 
-    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(
-        root.childs[0]);
+    FunctionDeclaration funcdecl_d = convertFunctionDefinitionHead(root.childs[0]);
 
     auto funcbody_c = root.childs[1];
 
@@ -1136,8 +1173,7 @@ Declaration convertFunctionDefinitionGlobal(Tree root) {
 //***********************************
 
 ExpressionNode convertTernaryExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "ConditionalExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "ConditionalExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     // showTree(root, 5);
@@ -1153,8 +1189,7 @@ ExpressionNode convertTernaryExpression(Tree root) {
 }
 
 ExpressionNode convertUnaryExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "UnaryExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "UnaryExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     UnaryExpression unaryExpr_d = new UnaryExpression();
@@ -1174,8 +1209,7 @@ ExpressionNode convertUnaryExpression(Tree root) {
 }
 
 ExpressionNode convertRelationalExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "RelationalExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "RelationalExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     RelExpression relExpr_d = new RelExpression();
@@ -1207,8 +1241,7 @@ ExpressionNode convertRelationalExpression(Tree root) {
 }
 
 ExpressionNode convertAdditiveExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "AdditiveExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "AdditiveExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     AddExpression addExpr_d = new AddExpression();
@@ -1230,8 +1263,7 @@ ExpressionNode convertAdditiveExpression(Tree root) {
 }
 
 ExpressionNode convertMultiplicativeExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "MultiplicativeExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "MultiplicativeExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     MulExpression mulExpr_d = new MulExpression();
@@ -1256,8 +1288,7 @@ ExpressionNode convertMultiplicativeExpression(Tree root) {
 }
 
 ExpressionNode convertAndExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "AndExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "AndExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     AndExpression andExpr_d = new AndExpression();
@@ -1268,8 +1299,7 @@ ExpressionNode convertAndExpression(Tree root) {
 }
 
 ExpressionNode convertExclusiveOrExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "ExclusiveOrExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "ExclusiveOrExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     XorExpression xorExpr_d = new XorExpression();
@@ -1280,8 +1310,7 @@ ExpressionNode convertExclusiveOrExpression(Tree root) {
 }
 
 ExpressionNode convertInclusiveOrExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "InclusiveOrExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "InclusiveOrExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     OrExpression orExpr_d = new OrExpression();
@@ -1292,8 +1321,7 @@ ExpressionNode convertInclusiveOrExpression(Tree root) {
 }
 
 ExpressionNode convertLogicalAndExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "LogicalAndExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "LogicalAndExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     AndAndExpression andExpr_d = new AndAndExpression();
@@ -1304,8 +1332,7 @@ ExpressionNode convertLogicalAndExpression(Tree root) {
 }
 
 ExpressionNode convertLogicalOrExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "LogicalOrExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "LogicalOrExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     OrOrExpression orExpr_d = new OrOrExpression();
@@ -1316,8 +1343,7 @@ ExpressionNode convertLogicalOrExpression(Tree root) {
 }
 
 ExpressionNode convertEqualityExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "EqualityExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "EqualityExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     EqualExpression equalExpr_d = new EqualExpression();
@@ -1335,8 +1361,7 @@ ExpressionNode convertEqualityExpression(Tree root) {
 }
 
 NewExpression convertNewExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "NewExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "NewExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     NewExpression newExpr_d = new NewExpression();
@@ -1360,8 +1385,7 @@ NewExpression convertNewExpression(Tree root) {
 }
 
 DeleteExpression convertDeleteExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "DeleteExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "DeleteExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     DeleteExpression deleteExpr_d = new DeleteExpression();
@@ -1370,8 +1394,7 @@ DeleteExpression convertDeleteExpression(Tree root) {
 }
 
 UnaryExpression convertCastExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "CastExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "CastExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     CastExpression castExpr_d = new CastExpression();
@@ -1417,18 +1440,15 @@ ExpressionNode convertPostfixExpression(Tree root) {
             // member access
             // showTree(root, 3);
             // TODO: use IdentifierOrTemplateChain instead?
-            UnaryExpression unaryExpr_d = cast(UnaryExpression) convertExpression(
-                root.childs[3]);
-            unaryExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(
-                root.childs[0]);
+            UnaryExpression unaryExpr_d = cast(UnaryExpression) convertExpression(root.childs[3]);
+            unaryExpr_d.unaryExpression = cast(UnaryExpression) convertExpression(root.childs[0]);
             result = unaryExpr_d;
         }
         else if (operator == "--") {
             // postfix decrement
             UnaryExpression unaryExpr_d = new UnaryExpression();
             unaryExpr_d.unaryExpression = new UnaryExpression();
-            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(
-                root.childs[0])
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
                 .toIdentifierOrTemplateInstance();
             // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"--", "", 0, 0, 0);
@@ -1438,8 +1458,7 @@ ExpressionNode convertPostfixExpression(Tree root) {
             // postfix increment
             UnaryExpression unaryExpr_d = new UnaryExpression();
             unaryExpr_d.unaryExpression = new UnaryExpression();
-            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(
-                root.childs[0])
+            unaryExpr_d.unaryExpression.identifierOrTemplateInstance = convertIdentifier(root.childs[0])
                 .toIdentifierOrTemplateInstance();
             // the token name must be empty or else libdlang assert will trigger
             unaryExpr_d.suffix = Token(tok!"++", "", 0, 0, 0);
@@ -1457,16 +1476,14 @@ ExpressionNode convertPostfixExpression(Tree root) {
 }
 
 ExpressionNode convertPrimaryExpression(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "PrimaryExpression")
+    if (root.nodeType != NodeType.nonterminal || root.name != "PrimaryExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
 
     PrimaryExpression primaryExpr_d = new PrimaryExpression();
     if (root.childs.length == 1) {
         primaryExpr_d.primary = Token(tok!"identifier", root.childs[0].content, 0, 0, 0);
     }
-    else if (root.childs[0].nodeType == NodeType.token
-        && root.childs[0].content == "(") {
+    else if (root.childs[0].nodeType == NodeType.token && root.childs[0].content == "(") {
         // this is a parenthesized expression
         primaryExpr_d.expression = new Expression();
         primaryExpr_d.expression.items ~= convertExpression(root.childs[1]);
@@ -1484,6 +1501,26 @@ ExpressionNode convertPrimaryExpression(Tree root) {
     UnaryExpression unaryExpr_d = new UnaryExpression();
     unaryExpr_d.primaryExpression = primaryExpr_d;
     return unaryExpr_d;
+
+}
+
+ExpressionNode convertShiftExpression(Tree root) {
+    if (root.nodeType != NodeType.nonterminal || root.name != "ShiftExpression")
+        throw new Exception("Non-terminal or unexpected terminal: " ~ root.asText);
+
+    ShiftExpression shiftExpr_d = new ShiftExpression();
+    shiftExpr_d.left = convertExpression(root.childs[0]);
+
+    string operator = root.childs[1].content;
+    if (operator == "<<") {
+        shiftExpr_d.operator = tok!"<<";
+    }
+    else if (operator == ">>") {
+        shiftExpr_d.operator = tok!">>";
+    }
+    shiftExpr_d.right = convertExpression(root.childs[2]);
+
+    return shiftExpr_d;
 
 }
 
@@ -1600,6 +1637,9 @@ ExpressionNode convertExpression(Tree root) {
         }
         result = convertCastExpression(root);
         break;
+    case "ShiftExpression":
+        result = convertShiftExpression(root);
+        break;
     default:
         writeln("Unknown expression type: ", root.name);
         // showTree(root, 3);
@@ -1611,8 +1651,7 @@ ExpressionNode convertExpression(Tree root) {
 }
 
 AssignExpression convertAssignmentExpression(Tree root) {
-    if (root.nodeType == NodeType.token
-        || root.name != "AssignmentExpression")
+    if (root.nodeType == NodeType.token || root.name != "AssignmentExpression")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     AssignExpression assignExpr_d = new AssignExpression();
@@ -1643,8 +1682,7 @@ AssignExpression convertAssignmentExpression(Tree root) {
 
 ExpressionStatement convertExpressionStatement(Tree root) {
 
-    if (root.nodeType == NodeType.token
-        || root.name != "ExpressionStatement")
+    if (root.nodeType == NodeType.token || root.name != "ExpressionStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     ExpressionStatement exprStmt_d = new ExpressionStatement();
@@ -1658,8 +1696,7 @@ ExpressionStatement convertExpressionStatement(Tree root) {
 }
 
 Statement convertIfStatement(Tree root) {
-    if (root.nodeType == NodeType.token
-        || root.name != "SelectionStatement")
+    if (root.nodeType == NodeType.token || root.name != "SelectionStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     IfStatement ifStmt_d = new IfStatement();
@@ -1680,8 +1717,7 @@ Statement convertIfStatement(Tree root) {
 }
 
 Statement convertJumpStatement(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "JumpStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "JumpStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     Statement stmt = new Statement();
@@ -1720,8 +1756,7 @@ Statement convertJumpStatement(Tree root) {
 }
 
 Statement convertIterationStatement(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "IterationStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "IterationStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     ForStatement forStmt_d = new ForStatement();
@@ -1748,8 +1783,7 @@ Statement convertIterationStatement(Tree root) {
 }
 
 CaseStatement convertCaseStatement(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "LabelStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "LabelStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     CaseStatement caseStmt_d = new CaseStatement();
@@ -1761,8 +1795,7 @@ CaseStatement convertCaseStatement(Tree root) {
 }
 
 DefaultStatement convertDefaultStatement(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "LabelStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "LabelStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     DefaultStatement defStmt_d = new DefaultStatement();
@@ -1794,10 +1827,8 @@ Statement convertSwitchStatement(Tree root) {
         return declOrStmt_d;
     }
 
-    DeclarationOrStatement getStatements(CaseBlockType caseBlockType,
-        CaseStatement caseStmt_d,
-        DefaultStatement defaultStmt_d,
-        DeclarationsAndStatements stmts_d) {
+    DeclarationOrStatement getStatements(CaseBlockType caseBlockType, CaseStatement caseStmt_d,
+            DefaultStatement defaultStmt_d, DeclarationsAndStatements stmts_d) {
         if (caseBlockType == CaseBlockType.caseType) {
             caseStmt_d.declarationsAndStatements = stmts_d;
             return wrapCaseStatement(caseStmt_d);
@@ -1813,8 +1844,7 @@ Statement convertSwitchStatement(Tree root) {
         return null;
     }
 
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "SelectionStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "SelectionStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     SwitchStatement switchStmt_d = new SwitchStatement();
@@ -1838,8 +1868,8 @@ Statement convertSwitchStatement(Tree root) {
         if (child.name == "LabelStatement") {
             // add the case statement to the switch
             if (caseBlockType != CaseBlockType.noneType) {
-                blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= getStatements(
-                    caseBlockType, caseStmt_d, defaultStmt_d, stmts_d);
+                blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= getStatements(caseBlockType,
+                        caseStmt_d, defaultStmt_d, stmts_d);
             }
             // create a list for the next case block
             stmts_d = new DeclarationsAndStatements();
@@ -1859,7 +1889,7 @@ Statement convertSwitchStatement(Tree root) {
     }
     // Are there left over statements?
     blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= getStatements(
-        caseBlockType, caseStmt_d, defaultStmt_d, stmts_d);
+            caseBlockType, caseStmt_d, defaultStmt_d, stmts_d);
 
     switchStmt_d.statement = new Statement();
     switchStmt_d.statement.statementNoCaseNoDefault = new StatementNoCaseNoDefault();
@@ -1874,8 +1904,7 @@ Statement convertSwitchStatement(Tree root) {
 }
 
 Statement convertLabelStatement(Tree root) {
-    if (root.nodeType != NodeType.nonterminal
-        || root.name != "LabelStatement")
+    if (root.nodeType != NodeType.nonterminal || root.name != "LabelStatement")
         throw new Exception("Non-terminal or unexpected terminal: " ~ root.name);
 
     LabeledStatement labelStmt_d = new LabeledStatement();
@@ -1898,7 +1927,7 @@ DeclarationOrStatement[] convertStatement(Tree root) {
 
     switch (root.name) {
     case "Statement":
-        // If a statement is ambiguous then 
+        // If a statement is ambiguous then
         // The statement will be merged and contain each alternative
         // interpretation
         if (root.nodeType == NodeType.merged) {
@@ -1932,7 +1961,7 @@ DeclarationOrStatement[] convertStatement(Tree root) {
         declOrStmt_d.statement = new Statement();
         declOrStmt_d.statement.statementNoCaseNoDefault = new StatementNoCaseNoDefault();
         declOrStmt_d.statement.statementNoCaseNoDefault.blockStatement = convertCompoundStatement(
-            root);
+                root);
         declsOrStmts_d ~= declOrStmt_d;
         break;
     case "ExpressionStatement":
@@ -1981,6 +2010,9 @@ DeclarationOrStatement[] convertStatement(Tree root) {
         }
         declsOrStmts_d ~= convertStatement(root.childs[0]);
         break;
+    case "Comment":
+        writeln("TODO: Comment ignored");
+        break;
     default:
 
         writeln("SingleStmt: Unknown statement type: ", root.name);
@@ -1995,8 +2027,7 @@ DeclarationOrStatement[] convertStatement(Tree root) {
 
 BlockStatement convertCompoundStatement(Tree root) {
 
-    if (root.nodeType != NodeType.nonterminal &&
-        root.name != "CompoundStatement")
+    if (root.nodeType != NodeType.nonterminal && root.name != "CompoundStatement")
         throw new Exception("Unexpected non-terminal: " ~ root.asText);
 
     BlockStatement blockStmt_d = new BlockStatement();
@@ -2009,8 +2040,7 @@ BlockStatement convertCompoundStatement(Tree root) {
             writeln("Skipping comment");
             continue;
         }
-        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(
-            child);
+        blockStmt_d.declarationsAndStatements.declarationsAndStatements ~= convertStatement(child);
     }
     return blockStmt_d;
 }
