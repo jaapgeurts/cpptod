@@ -45,7 +45,7 @@ int main(string[] args) {
         return 1;
     }
 
-    // check if all required arguments are present 
+    // check if all required arguments are present
     // and take the first two arguments as input file names
     if (isMerge) {
         if (args.length != 3) {
@@ -106,6 +106,8 @@ void startConversion(string filenameC, string filenameH, File outFile) {
         inTextH = readText(filenameH);
     }
 
+
+
     // Replace macros
     inTextC = inTextC.replaceMacros();
     if (inTextH.length > 0) {
@@ -120,15 +122,23 @@ void startConversion(string filenameC, string filenameH, File outFile) {
             treeH = parseCpp(inTextH, filenameH);
         }
 
+        string moduleName = filenameH.baseName().stripExtension();
+
         // convert both trees to D
-        Module moduleC = transpileFile(treeC);
+        Module moduleC = transpileFile(treeC,"");
         Module moduleH;
+        Module mergedTree;
         if (isMerge) {
-            moduleH = transpileFile(treeH);
+            moduleH = transpileFile(treeH,moduleName);
 
             // merge the two trees
-            moduleC = mergeTrees(moduleC, moduleH);
+            mergedTree = mergeTrees(moduleC, moduleH);
         }
+
+        // repairReservedKeywords(mergedTree);
+
+        // Replace all occurences of const char* with string
+        replaceConstCharPtr(mergedTree);
 
         // printTree(stdout, preprocTree, verbose);
         // printTree(stdout, tree, verbose);
@@ -137,12 +147,12 @@ void startConversion(string filenameC, string filenameH, File outFile) {
         auto xmlprinter = new XMLPrinter();
         File newoutput = File("newtree.xml", "w");
         xmlprinter.output = newoutput;
-        moduleC.accept(xmlprinter);
+        mergedTree.accept(xmlprinter);
 
-        // print the tree. 
+        // print the tree.
         // TODO: replace with a dfmt printer
         DSourcePrinter printer = new DSourcePrinter(outFile);
-        moduleC.accept(printer);
+        mergedTree.accept(printer);
 
         // if (isFormat) {
         //     // format the output file using dfmt
